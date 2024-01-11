@@ -1,0 +1,3 @@
+LINUXINCLUDE += -I$(AUDIOLITE_ROOT)
+
+obj-m        += ipcc_shmem_test_module.o
