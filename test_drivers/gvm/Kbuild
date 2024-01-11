@@ -1,0 +1,2 @@
+obj-m += ipcc_shmem_test_module.o
+BOARD_VENDOR_KERNEL_MODULES += $(KERNEL_MODULES_OUT)/ipcc_shmem_test_module.ko
