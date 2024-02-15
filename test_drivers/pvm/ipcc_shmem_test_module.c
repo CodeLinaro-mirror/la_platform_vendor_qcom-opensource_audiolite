@@ -1027,7 +1027,7 @@ static int ipc_shmem_device_create(void)
         goto out;
     }
 
-    ipc_shmem_class = class_create(THIS_MODULE, IPC_SHMEM_DEV_NAME);
+    ipc_shmem_class = class_create(IPC_SHMEM_DEV_NAME);
     if (IS_ERR(ipc_shmem_class)) {
         rc = PTR_ERR(ipc_shmem_class);
         pr_err("%s: Unable to create class: %d\n", __FUNCTION__, rc);
