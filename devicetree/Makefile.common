@@ -21,6 +21,7 @@ TECHPACK_INCLUDE += $(KDIR)/include
 TECHPACK_INCLUDE += $(KDIR)/arch/$(ARCH)/boot/dts/qcom
 TECHPACK_INCLUDE += $(TECHPACK_BINDING_DIR)
 TECHPACK_INCLUDE += $(TECHPACK_BINDING_DIR)/audiolite-dt-bindings
+TECHPACK_INCLUDE += $(TECHPACK_BINDING_DIR)/safelinux-system-cfg
 TECHPACK_INCLUDE += $(TECHPACK_BINDING_DIR)/safelinux-system-cfg/oot-dt-bindings
 
 all: fail-if-no-kdir dtbos safelinux-system-cfg/merge_dtbs.sh
