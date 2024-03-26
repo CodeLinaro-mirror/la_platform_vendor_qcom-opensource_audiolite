@@ -38,7 +38,6 @@
 				IPCC_COMPUTE_L0_SIGNAL_MSG
 				IRQ_TYPE_EDGE_RISING>;
 		memory-region = <&ipc_shared_mem>;
-		dma-coherent;
 	};
 
 	ipcc_self_ping_apss_cl0_ack: ipcc-self-ping-apss_cl0_ack {
@@ -50,7 +49,6 @@
 				IPCC_COMPUTE_L0_SIGNAL_ACK
 				IRQ_TYPE_EDGE_RISING>;
 		memory-region = <&ipc_shared_mem>;
-		dma-coherent;
 	};
 
 	ipcc_self_ping_adsp_cl0: ipcc-self-ping-adsp_cl0 {
@@ -62,7 +60,6 @@
 				IPCC_COMPUTE_L0_SIGNAL_MSG
 				IRQ_TYPE_EDGE_RISING>;
 		memory-region = <&ipc_shared_mem>;
-		dma-coherent;
 	};
 
 	ipcc_self_ping_adsp_cl0_ack: ipcc-self-ping-adsp_cl0_ack {
@@ -74,7 +71,6 @@
 				IPCC_COMPUTE_L0_SIGNAL_ACK
 				IRQ_TYPE_EDGE_RISING>;
 		memory-region = <&ipc_shared_mem>;
-		dma-coherent;
 	};
 
 	ipcc_self_ping_gpdsp0_cl0: ipcc-self-ping-gpdsp0_cl0 {
@@ -86,7 +82,6 @@
 				IPCC_COMPUTE_L0_SIGNAL_MSG
 				IRQ_TYPE_EDGE_RISING>;
 		memory-region = <&ipc_shared_mem>;
-		dma-coherent;
 	};
 
 	ipcc_self_ping_gpdsp0_cl0_ack: ipcc-self-ping-gpdsp0_cl0_ack {
@@ -98,7 +93,6 @@
 				IPCC_COMPUTE_L0_SIGNAL_ACK
 				IRQ_TYPE_EDGE_RISING>;
 		memory-region = <&ipc_shared_mem>;
-		dma-coherent;
 	};
 
 	ipcc_self_ping_gpdsp1_cl0: ipcc-self-ping-gpdsp1_cl0 {
@@ -110,7 +104,6 @@
 				IPCC_COMPUTE_L0_SIGNAL_MSG
 				IRQ_TYPE_EDGE_RISING>;
 		memory-region = <&ipc_shared_mem>;
-		dma-coherent;
 	};
 
 	ipcc_self_ping_gpdsp1_cl0_ack: ipcc-self-ping-gpdsp1_cl0_ack {
@@ -122,7 +115,6 @@
 				IPCC_COMPUTE_L0_SIGNAL_ACK
 				IRQ_TYPE_EDGE_RISING>;
 		memory-region = <&ipc_shared_mem>;
-		dma-coherent;
 	};
 
 	umd_audiolite@448000 {
