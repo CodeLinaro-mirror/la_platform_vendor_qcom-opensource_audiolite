@@ -150,7 +150,7 @@ static struct dma_buf_attachment *buf_attachment = NULL;
 static struct sg_table *table = NULL;
 static int app_pid = -1;
 static int dma_buf_fd_val = -1;
-static int ipc_from_user = -1;
+static int ipc_from_user = 1;
 static unsigned long shmem_phy_addr = SHMEM_PHY_ADDR;
 static unsigned long shmem_size = SHMEM_SIZE;
 
