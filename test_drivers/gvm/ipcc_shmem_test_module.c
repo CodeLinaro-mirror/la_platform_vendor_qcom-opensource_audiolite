@@ -49,7 +49,7 @@
 #define SIZE_1KB                            (1024)
 #define SIZE_1MB                            (1024*1024)
 /* Shared memory configuration */
-#define AUDIOLITE_CARVE_AREA                (0xdb300000)
+#define AUDIOLITE_CARVE_AREA                (0xad000000)
 #define AUDIOLITE_CARVE_SIZE                (0x2000000)
 #define SHMEM_PHY_ADDR                      (AUDIOLITE_CARVE_AREA)
 #define SHMEM_SIZE                          (AUDIOLITE_CARVE_SIZE)

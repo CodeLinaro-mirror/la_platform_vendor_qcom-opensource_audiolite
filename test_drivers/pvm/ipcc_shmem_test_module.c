@@ -53,7 +53,7 @@
 #define SIZE_1KB                            (1024)
 #define SIZE_1MB                            (1024*1024)
 /* Shared memory configuration */
-#define AUDIOLITE_CARVE_AREA                (0xdb300000)
+#define AUDIOLITE_CARVE_AREA                (0xad000000)
 #define AUDIOLITE_CARVE_SIZE                (0x2000000)
 #define SHMEM_PHY_ADDR                      (AUDIOLITE_CARVE_AREA)
 #define SHMEM_SIZE                          (AUDIOLITE_CARVE_SIZE)
@@ -150,7 +150,7 @@ static struct dma_buf_attachment *buf_attachment = NULL;
 static struct sg_table *table = NULL;
 static int app_pid = -1;
 static int dma_buf_fd_val = -1;
-static int ipc_from_user = -1;
+static int ipc_from_user = 1;
 static unsigned long shmem_phy_addr = SHMEM_PHY_ADDR;
 static unsigned long shmem_size = SHMEM_SIZE;
 
