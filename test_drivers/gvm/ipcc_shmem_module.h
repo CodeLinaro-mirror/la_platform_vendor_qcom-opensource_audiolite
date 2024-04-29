@@ -18,8 +18,13 @@ enum ipc_client {
     IPCC_CLIENT_GPDSP1 = 0x4000
 };
 
+enum cache_ops {
+    CACHE_FLUSH = 1,
+    CACHE_INVALIDATE = 2,
+};
 #define IRQ_ACK                      (0x0001)
 #define IRQ_DATA                     (0x0002)
+#define IPC_SHMEM_MAGIC              'H'
 
 #define IPCC_CLIENT_HOST_IRQ_ACK     (IPCC_CLIENT_HOST|IRQ_ACK)
 #define IPCC_CLIENT_HOST_IRQ_DATA    (IPCC_CLIENT_HOST|IRQ_DATA)
@@ -31,23 +36,40 @@ enum ipc_client {
 #define IPCC_CLIENT_GPDSP1_IRQ_DATA  (IPCC_CLIENT_GPDSP1|IRQ_DATA)
 #define IPCC_IRQ_INVAL               (0xFFFF)
 
-typedef struct ipcc_shmem_reg_cb {
+struct ipc_shmem_reg_cb {
     int32_t pid;
-}ipcc_shmem_reg_cb_t;
+};
 
-typedef struct ipcc_shmem_dma_buf_info {
-    int32_t dma_buf_fd;
-}ipcc_shmem_dma_buf_info_t;
+struct ipc_shmem_cache_ops {
+    enum cache_ops flag;
+    int32_t size;
+    void *buf;
+};
 
-#define IPCC_SHMEM_MAGIC     'H'
+struct ipc_shmem_cache_offset_ops {
+    enum cache_ops flag;
+    uint32_t offset;
+    int32_t size;
+    void *buf;
+};
 
-#define IOCTL_IPCC_SHMEM_REG_IRQ \
-    _IOWR(IPCC_SHMEM_MAGIC, 0x01, struct ipcc_shmem_reg_cb)
-
-#define IOCTL_IPCC_SHMEM_GET_FD \
-    _IOWR(IPCC_SHMEM_MAGIC, 0x02, struct ipcc_shmem_dma_buf_info)
-
-#define IOCTL_IPCC_SHMEM_ALLOC_DMA_BUF \
-    _IOWR(IPCC_SHMEM_MAGIC, 0x03, struct ipcc_shmem_dma_buf_info)
+#define IOCTL_IPC_SHMEM_REG_IRQ \
+    _IOWR(IPC_SHMEM_MAGIC, 0x01, struct ipc_shmem_reg_cb)
+// Todo: Use single ioctl for cache operations
+/*
+ * IOCTL_IPC_SHMEM_CACHE_OPS:
+ * cache flush or invalidate on the userspace address passed in the buf
+ * supported only in the lrh kernel
+ */
+#define IOCTL_IPC_SHMEM_CACHE_OPS \
+    _IOWR(IPC_SHMEM_MAGIC, 0x02, struct ipc_shmem_cache_ops)
+/*
+ * IOCTL_IPC_SHMEM_CACHE_OFFSET_OPS:
+ * cache flush or invalidate on the kernel address
+ * User pass the shared memory offset, kernel flush/inval the
+ * kernel virtual base address + offset
+ */
+#define IOCTL_IPC_SHMEM_CACHE_OFFSET_OPS \
+    _IOWR(IPC_SHMEM_MAGIC, 0x03, struct ipc_shmem_cache_offset_ops)
 
 #endif
