@@ -37,7 +37,14 @@
 #else
 #include <asm-generic/sizes.h>
 #endif
+#include <linux/dma-mapping.h>
+#include <linux/dma-map-ops.h>
+#include <linux/of_reserved_mem.h>
+#include <linux/of_address.h>
+#include <linux/io.h>
+#include <linux/genalloc.h>
 
+#define AUDIOLITE_GVM
 #define DMA_HEAP_NAME                      "qcom,ipc_shmem"
 #define IPC_SHMEM_DEV_NAME                 "ipc_shmem"
 #define DMA_DATA_DIR                        DMA_BIDIRECTIONAL
@@ -88,7 +95,9 @@
 
 #define SHMEM_DMA_LATENCY_OFFSET            (SHMEM_AUDIO_CONF_OFFSET+ \
                                              SHMEM_AUDIO_CONF_AREA_SIZE)
+#ifndef AUDIOLITE_GVM
 /* shared memory area to communicate with host */
+// Todo: Redefine the area as request/resp area
 #define SHMEM_HOST_LA_WRITE_OFFSET          (SHMEM_DMA_LATENCY_OFFSET + \
                                              SHMEM_DMA_LATENCY_AREA_SIZE)
 
@@ -97,10 +106,27 @@
 
 #define SHMEM_DSP_PERF_INFO_OFFSET          (SHMEM_HOST_LA_READ_OFFSET+ \
                                              SHMEM_HOST_LA_READ_AREA_SIZE)
+#else
+/* swap the read/write address on the GVM */
+#define SHMEM_HOST_LA_READ_OFFSET           (SHMEM_DMA_LATENCY_OFFSET + \
+                                             SHMEM_DMA_LATENCY_AREA_SIZE)
+
+#define SHMEM_HOST_LA_WRITE_OFFSET          (SHMEM_HOST_LA_READ_OFFSET + \
+                                             SHMEM_HOST_LA_READ_AREA_SIZE)
+
+#define SHMEM_DSP_PERF_INFO_OFFSET          (SHMEM_HOST_LA_WRITE_OFFSET+ \
+                                             SHMEM_HOST_LA_WRITE_AREA_SIZE)
+#endif /* AUDIOLITE_GVM */
 /* test data */
 #define IPC_SHMEM_TEST_SIZE                 (SHMEM_HOST_LA_WRITE_AREA_SIZE)
 #define TEST_DATA                           (0xA5)
 #define IPCC_SHMEM_PLATFORM_OFFSET_SHIFT    (40)
+#define NORMAL_NON_CACHED                   (0)
+#define NORMAL_CACHED                       (1)
+#define LOOPBACK_TEST                       (0x31)
+#define CACHE_TEST                          (0x33)
+#define IPC_SHMEM_CACHE_TEST_SIZE           (4)
+
 /* Set cmd */
 #define SHM_CMD_SET_SYNC(shmem_cmd_hdr_p)                     \
         shmem_cmd_hdr_p->sync_word = SHM_CMD_SYNC
@@ -140,11 +166,14 @@
 
 static char *shmem_addr = NULL;
 static size_t shmem_alloc_size = 0;
-static struct dma_heap *heap = NULL;
-static struct dma_buf *dmabuf = NULL;
-static struct dma_buf_attachment *buf_attachment = NULL;
+static dma_addr_t dma_region_start;
+static uint8_t cache_test_data = TEST_DATA;
 static int app_pid = -1;
 static int ipc_from_user = 0;
+static int cache_mode_g = NORMAL_CACHED;
+static int cache_test_offset = 0;
+static unsigned long shmem_phy_addr = SHMEM_PHY_ADDR;
+static unsigned long shmem_size = SHMEM_SIZE;
 
 enum shmem_opcode {
     SHMEM_CMD_LOOPBACK,
@@ -181,7 +210,6 @@ struct shmem_cmd_hdr {
 struct ipc_shmem_module_data {
     struct ion_client *client;
     struct list_head danglers;
-    struct dma_buf_attachment *dmabuf_attach;
 };
 
 struct dangling_allocation {
@@ -201,31 +229,34 @@ struct ipc_shmem_irq_data {
     u32 data_err;
     u32 cache_mode;
     u32 kernel_test;
+    u32 cache_test_size;
     bool is_shemem_alloc;
+    dma_addr_t dma_region_start;
+    size_t dma_alloc_size;
+    void *cpu_handle;
+    struct device *dev;
+    void __iomem *virt_base;
 };
 static struct dentry *root_test_dir;
 static struct class *ipc_shmem_class;
 static int ipc_shmem_major;
 static struct device *ipc_shmem_dev;
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,18,0))
-    static struct iosys_map vmap_struct = {0};
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0))
-    static struct dma_buf_map vmap_struct = {0};
-#else
-    static void *vmap_ptr;
-#endif  /* LINUX_VERSION_CODE */
+static struct gen_pool *pool = NULL;
 
 static int write_test_data_to_shmem(const char *name,
                                     uint8_t *test_buf,
                                     uint32_t test_buf_size,
                                     uint32_t cache_mode);
+static int write_cache_test_data_to_shmem(const char *name,
+                                    uint8_t *test_buf,
+                                    uint32_t test_buf_size,
+                                    uint32_t cache_mode);
 static int ipcc_shmem_send_signal_to_user(enum ipc_client client,
                                           bool is_ack);
-static void ipc_shmem_disable(void);
-static int ipc_shmem_enable(size_t alloc_size, bool is_alloc);
-static int ipc_shmem_device_create(void);
-static void ipc_shmem_device_destroy(void);
+static int ipc_shmem_enable(struct ipc_shmem_irq_data *data,
+                            unsigned long size);
+static void ipc_shmem_disable(struct ipc_shmem_irq_data *data);
+extern void arch_invalidate_pmem(void *addr, size_t size);
 
 static int shmem_cmd_set_opcode(uint8_t *buffer,
                                 uint32_t buffer_size,
@@ -242,11 +273,13 @@ static int shmem_cmd_set_opcode(uint8_t *buffer,
         return -1;
     }
     memset(shmem_cmd_hdr_p, 0, sizeof(struct shmem_cmd_hdr));
+
     SHM_CMD_SET_SYNC(shmem_cmd_hdr_p);
     SHM_CMD_SET_HEADER_SIZE(shmem_cmd_hdr_p, sizeof(struct shmem_cmd_hdr));
     SHM_CMD_SET_MSG_TYPE(shmem_cmd_hdr_p, SHMEM_MSG_TYPE_CMD);
     SHM_CMD_SET_PAYLOAD_SIZE(shmem_cmd_hdr_p, payload_size);
     SHM_CMD_SET_OPCODE(shmem_cmd_hdr_p, opcode);
+
     memcpy(buffer, shmem_cmd_hdr_p, sizeof(struct shmem_cmd_hdr));
 
     return 0;
@@ -262,7 +295,9 @@ static int shmem_cmd_get_header(uint8_t *buffer,
         return -1;
     }
     memset(shmem_cmd_hdr_p, 0, sizeof(struct shmem_cmd_hdr));
-    memcpy((uint8_t *)shmem_cmd_hdr_p, buffer, sizeof(struct shmem_cmd_hdr));
+    memcpy((uint8_t *)shmem_cmd_hdr_p,
+           buffer,
+           sizeof(struct shmem_cmd_hdr));
 
     return 0;
 }
@@ -297,6 +332,7 @@ static int shmem_cmd_log_header_info(uint8_t *buffer)
             sync_word,
             header_size,
             msg_type);
+
     pr_debug("%s: payload_size=%d opcode=%d\n",
             __FUNCTION__,
             payload_size,
@@ -334,20 +370,20 @@ static enum ipc_client get_ipc_client(const char *name)
     return client;
 }
 
-static int begin_cpu_access(uint32_t cache_mode)
+/* invalidate the cache before cpu reads the buffer */
+static int begin_cpu_access(void *addr, size_t size, uint32_t cache_mode)
 {
     if(cache_mode)
-        return dma_buf_begin_cpu_access(dmabuf, DMA_DATA_DIR);
-    else
+        arch_invalidate_pmem(addr, size);
 
     return 0;
 }
 
-static int end_cpu_access(uint32_t cache_mode)
+/* flush the cache after cpu write to the buffer */
+static int end_cpu_access(void *addr, size_t size, uint32_t cache_mode)
 {
     if(cache_mode)
-        return dma_buf_end_cpu_access(dmabuf, DMA_DATA_DIR);
-    else
+        arch_invalidate_pmem(addr, size);
 
     return 0;
 }
@@ -367,6 +403,7 @@ static int loopback_data_test(struct ipc_shmem_irq_data *data,
     int i;
 
     mbox_chan = data->mbox_chan;
+
     client = get_ipc_client(data->name);
     if(client == IPCC_CLIENT_INVAL) {
         pr_err("%s:  Invalid client \n", __func__);
@@ -384,7 +421,8 @@ static int loopback_data_test(struct ipc_shmem_irq_data *data,
     }
     pr_info("%s: cache_mode %d\n", __FUNCTION__, data->cache_mode);
 
-    ret = begin_cpu_access(data->cache_mode);
+    /* invalidate before the read */
+    ret = begin_cpu_access(shmem_data_addr, test_data_size, data->cache_mode);
     if (ret) {
         pr_err("%s: begin_cpu_access()() failed with %d\n",
                __FUNCTION__, ret);
@@ -394,22 +432,17 @@ static int loopback_data_test(struct ipc_shmem_irq_data *data,
             ret = -EFAULT;
         }
     }
-    ret = end_cpu_access(data->cache_mode);
-    if (ret) {
-        pr_err("%s: end_cpu_access() failed with %d\n",
-               __FUNCTION__, ret);
-    }
-
     if(ret == -EFAULT) {
         pr_err("%s:  Data comparison fail \n", __func__);
         data->data_err++;
     }else {
         pr_info("%s:  Data comparison success test_data_size=%d \n",
                 __func__,
-                test_data_size);
+            test_data_size);
     }
+
     if(client == IPCC_CLIENT_HOST) {
-        if(data->kernel_test == 0x31) {
+        if(data->kernel_test == LOOPBACK_TEST) {
             write_test_data_to_shmem(data->name,
                                     shmem_data_addr,
                                     test_data_size,
@@ -417,12 +450,74 @@ static int loopback_data_test(struct ipc_shmem_irq_data *data,
 
             ret = mbox_send_message(mbox_chan, "foo_data");
             if (ret < 0) {
-                pr_err("Failed to send mbox data: %d \n", ret);
+                pr_err("%s: Failed to send mbox data: %d \n",
+                       __FUNCTION__, ret);
                 return ret;
             }
             mbox_client_txdone(mbox_chan, 0);
         }
     }
+
+    return ret;
+}
+
+static int loopback_cache_data_test(struct ipc_shmem_irq_data *data,
+                                    uint32_t test_data_size)
+{
+
+    uint8_t *shmem_data_addr;
+    struct mbox_chan *mbox_chan;
+    enum ipc_client client = IPCC_CLIENT_INVAL;
+    int ret = 0;
+    int data_err = 0;
+    int i;
+
+    mbox_chan = data->mbox_chan;
+
+    client = get_ipc_client(data->name);
+    if(client == IPCC_CLIENT_INVAL) {
+        pr_err("%s:  Invalid client \n", __func__);
+        return -EINVAL;
+    }
+    if(test_data_size > SHMEM_READ_AREA_SIZE) {
+        pr_err("%s:  Invalid test size \n", __func__);
+        return -EINVAL;
+    }
+
+    if(client == IPCC_CLIENT_HOST) {
+        shmem_data_addr = shmem_addr +
+                          SHMEM_HOST_LA_READ_OFFSET +
+                          cache_test_offset;
+    }else {
+        shmem_data_addr = shmem_addr +
+                          SHMEM_READ_OFFSET +
+                          cache_test_offset;
+    }
+    pr_info("%s: cache_mode %d test_data_size %d \n",
+            __FUNCTION__, data->cache_mode, test_data_size);
+
+    /* invalidate before the read */
+    ret = begin_cpu_access(shmem_data_addr, test_data_size, data->cache_mode);
+    if (ret) {
+        pr_err("%s: begin_cpu_access()() failed with %d\n",
+               __FUNCTION__, ret);
+    }
+    for (i = 0; i < test_data_size; i++) {
+        if (shmem_data_addr[i] != (uint8_t)(cache_test_data+i)) {
+            data_err = -EFAULT;
+            pr_err("%s:  Data error exp[0x%x] actual [0x%x]\n",
+                    __func__, (uint8_t)(cache_test_data+i), shmem_data_addr[i]);
+        }
+    }
+    if(data_err == -EFAULT) {
+        pr_err("%s:  Data comparison fail \n", __func__);
+        data->data_err++;
+    }else {
+        pr_info("%s:  Data comparison success test_data_size=%d \n", __func__,
+            test_data_size);
+    }
+    cache_test_offset += test_data_size;
+    cache_test_data += test_data_size;
 
     return ret;
 }
@@ -435,15 +530,18 @@ static irqreturn_t ipc_shmem_irq_fn(int irq, void *d)
     bool is_ack = false;
 
     data->pings_received++;
-    dev_dbg(&pdev->dev, "IRQ received: %d : %s \n", irq, data->name);
-
+    dev_info(&pdev->dev, "IRQ received: %d : %s \n",
+             irq, data->name);
     if(!is_ack_message(data->name)) {
         is_ack = false;
-        if(data->kernel_test)
+        if(data->kernel_test == CACHE_TEST)
+            loopback_cache_data_test(data, IPC_SHMEM_CACHE_TEST_SIZE);
+        else if (data->kernel_test)
             loopback_data_test(data, IPC_SHMEM_TEST_SIZE);
     }else {
         is_ack = true;
-        dev_dbg(&pdev->dev, "ACK received: %d : %s \n", irq, data->name);
+        dev_info(&pdev->dev, "ACK received: %d : %s \n",
+                 irq, data->name);
     }
     if(0 <= app_pid) {
         client = get_ipc_client(data->name);
@@ -476,6 +574,7 @@ static int write_test_data_to_shmem(const char *name,
         pr_err("%s:  Invalid test size \n", __func__);
         return -EINVAL;
     }
+
     if(client == IPCC_CLIENT_HOST) {
         shmem_cmd_addr = NULL;
         shmem_data_addr = shmem_addr + SHMEM_HOST_LA_WRITE_OFFSET;
@@ -488,16 +587,14 @@ static int write_test_data_to_shmem(const char *name,
             cache_mode,
             shmem_cmd_addr,
             shmem_data_addr);
-    ret = begin_cpu_access(cache_mode);
-    if (ret) {
-        pr_err("%s: begin_cpu_access()() failed with %d\n", __FUNCTION__, ret);
-    }
     /* write data to shared memory */
     if(shmem_cmd_addr != NULL)    {
         shmem_cmd_set_opcode(shmem_cmd_addr,
                              SHMEM_SIZE,
                              SHMEM_CMD_LOOPBACK,
                              IPC_SHMEM_TEST_SIZE);
+        pr_info("%s: Set opcode done \n", __FUNCTION__);
+
         shmem_cmd_log_header_info(shmem_cmd_addr);
     }
     if(shmem_data_addr != NULL) {
@@ -506,7 +603,61 @@ static int write_test_data_to_shmem(const char *name,
         else
             memcpy(shmem_data_addr, test_buf, test_buf_size);
     }
-    ret = end_cpu_access(cache_mode);
+    /* flush after the write */
+    ret = end_cpu_access(shmem_data_addr, test_buf_size, cache_mode);
+    if (ret) {
+        pr_err("%s: end_cpu_access() failed with %d\n",
+               __FUNCTION__, ret);
+    }
+
+    return ret;
+}
+
+static int write_cache_test_data_to_shmem(const char *name,
+                                    uint8_t *test_buf,
+                                    uint32_t test_buf_size,
+                                    uint32_t cache_mode)
+{
+    // union payload_ payload;
+    uint8_t *shmem_data_addr;
+    uint8_t *shmem_cmd_addr;
+    enum ipc_client client = IPCC_CLIENT_INVAL;
+    int32_t ret = 0;
+    int32_t i = 0;
+
+    client = get_ipc_client(name);
+    if(client == IPCC_CLIENT_INVAL) {
+        pr_err("%s:  Invalid client \n", __func__);
+        return -EINVAL;
+    }
+    if(test_buf_size > SHMEM_HOST_LA_WRITE_AREA_SIZE) {
+        pr_err("%s:  Invalid test size \n", __func__);
+        return -EINVAL;
+    }
+
+    if(client == IPCC_CLIENT_HOST) {
+        shmem_cmd_addr = NULL;
+        shmem_data_addr = shmem_addr + SHMEM_HOST_LA_WRITE_OFFSET + cache_test_offset;
+    }else {
+        shmem_data_addr = shmem_addr + SHMEM_WRITE_OFFSET + cache_test_offset;
+        shmem_cmd_addr = shmem_addr + SHMEM_CMD_OFFSET;
+    }
+    pr_info("%s: cache_mode %d shmem_data_addr=0x%x\n",
+            __FUNCTION__,
+            cache_mode,
+            shmem_data_addr);
+    pr_info("%s: cache_test_offset %d cache_test_data=0x%x test_buf_size=%d\n",
+            __FUNCTION__,
+            cache_test_offset,
+            cache_test_data,
+            test_buf_size);
+    if(shmem_data_addr != NULL) {
+        for (i = 0; i < test_buf_size; i++) {
+            shmem_data_addr[i] = (uint8_t)cache_test_data + i;
+        }
+    }
+    /* flush after the write */
+    ret = end_cpu_access(shmem_data_addr, test_buf_size, cache_mode);
     if (ret) {
         pr_err("%s: end_cpu_access() failed with %d\n", __FUNCTION__, ret);
     }
@@ -525,26 +676,27 @@ ipc_shmem_irq_debugfs_write(struct file *filp,
     struct mbox_chan *mbox_chan;
 
     if (!data) {
-        pr_err("%s: Failed to get the driver_data\n", __func__);
+        pr_err("%s: Failed to get the driver_data\n",
+                __func__);
         return -EFAULT;
     }
     pdev = data->pdev;
     mbox_chan = data->mbox_chan;
     pr_info("%s: %s \n", __FUNCTION__, data->name);
     if(data->kernel_test) {
-        if(!data->is_shemem_alloc) {
-            ret = ipc_shmem_enable(SHMEM_SIZE, true);
-            if (ret) {
-                pr_err("shared memory enable fail : %d\n", ret);
-                return ret;
-            }
-            data->is_shemem_alloc = true;
+        if(data->kernel_test == CACHE_TEST) {
+            write_cache_test_data_to_shmem(data->name,
+                         NULL,
+                         data->cache_test_size,
+                         data->cache_mode);
+        }else {
+            write_test_data_to_shmem(data->name,
+                                     NULL,
+                                     IPC_SHMEM_TEST_SIZE,
+                                     data->cache_mode);
         }
-        write_test_data_to_shmem(data->name,
-                                 NULL,
-                                 IPC_SHMEM_TEST_SIZE,
-                                 data->cache_mode);
     }
+
     ret = mbox_send_message(mbox_chan, "foo_data");
     if (ret < 0) {
         dev_err(&pdev->dev, "Failed to send mbox data: %d\n", ret);
@@ -553,7 +705,8 @@ ipc_shmem_irq_debugfs_write(struct file *filp,
     data->pings_sent++;
     mbox_client_txdone(mbox_chan, 0);
 
-    dev_info(&pdev->dev, "mbox message sent successfully test size=%d \n",
+    dev_info(&pdev->dev,
+             "mbox message sent successfully test size=%d \n",
              IPC_SHMEM_TEST_SIZE);
 
     return count;
@@ -564,23 +717,75 @@ static struct file_operations ipc_shmem_irq_debugfs_fops = {
     .write = ipc_shmem_irq_debugfs_write
 };
 
+static int ipc_shmem_reserve_mem(struct ipc_shmem_irq_data *data)
+{
+    struct device_node *mem_node;
+    int ret = 0;
+    struct resource res;
+    int rc = 0;
+    struct device *dev = data->dev;
+
+    if(pool != NULL) {
+        dev_info(dev, "gen_pool already created");
+        return ret;
+    }
+    mem_node = of_parse_phandle(dev->of_node, "memory-region", 0);
+    if (mem_node) {
+        rc = of_address_to_resource(mem_node, 0, &res);
+        if (rc) {
+            dev_err(dev, "No memory address assigned to the region\n");
+        }
+        shmem_phy_addr = res.start;
+        shmem_size = resource_size(&res);
+        dev_info(dev,
+                 "reserved memory, shared mem phy_addr 0x%lx size=%lu\n",
+                 shmem_phy_addr, shmem_size);
+        data->virt_base = memremap(shmem_phy_addr, shmem_size, MEMREMAP_WB);
+        if (!data->virt_base) {
+            return -ENOMEM;
+        }
+        dev_info(dev, "ioremp done");
+
+        pool = devm_gen_pool_create(dev, ilog2(1), NUMA_NO_NODE, NULL);
+        if (IS_ERR(pool))
+            return PTR_ERR(pool);
+        dev_info(data->dev, "pool creation done");
+
+        ret = gen_pool_add(pool, (unsigned long)data->virt_base, shmem_size, -1);
+        if (ret < 0) {
+            dev_info(dev, "gen_pool add failed");
+            return ret;
+        }
+        dev_info(dev, "gen pool: %zu KiB @ 0x%lx\n", gen_pool_size(pool) / 1024, data->virt_base);
+    } else {
+        return -ENOMEM;
+    }
+
+    return ret;
+}
+
 static int ipc_shmem_irq_probe(struct platform_device *pdev)
 {
     int irq, ret;
     struct dentry *dentry;
     struct ipc_shmem_irq_data *data;
+    unsigned long size = SHMEM_SIZE;
 
     pr_debug("%s:  \n", __FUNCTION__);
+
     data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
     if (!data)
         return -ENOMEM;
+
     data->pdev = pdev;
     data->name = pdev->dev.of_node->name;
+
     irq = platform_get_irq(pdev, 0);
     if (irq < 0) {
         dev_err(&pdev->dev, "Failed to get irq. ret: %d\n", irq);
         return irq;
     }
+
     ret = devm_request_threaded_irq(&pdev->dev,
                     irq, ipc_shmem_irq_fn,
                      NULL, IRQF_ONESHOT,
@@ -590,6 +795,7 @@ static int ipc_shmem_irq_probe(struct platform_device *pdev)
             "Failed to request interrupt: ret: %d\n", ret);
         return ret;
     }
+
     data->mbox_client.dev = &pdev->dev;
     data->mbox_client.knows_txdone = true;
     data->mbox_chan = mbox_request_channel(&data->mbox_client, 0);
@@ -597,12 +803,14 @@ static int ipc_shmem_irq_probe(struct platform_device *pdev)
         dev_err(&pdev->dev, "Failed to allocate mbox channel\n");
         return PTR_ERR(data->mbox_chan);
     }
+
     data->debugfs_dir = debugfs_create_dir(data->name, root_test_dir);
     if (!data->debugfs_dir) {
         dev_err(&pdev->dev, "Failed to create debugfs directory\n");
         ret = -ENOMEM;
         goto debugfs_dir_err;
     }
+
     dentry = debugfs_create_file("ping", 0200, data->debugfs_dir, data,
                     &ipc_shmem_irq_debugfs_fops);
     if (!dentry) {
@@ -612,15 +820,30 @@ static int ipc_shmem_irq_probe(struct platform_device *pdev)
     }
     debugfs_create_u32("pings_sent", 0600, data->debugfs_dir,
                     &data->pings_sent);
+
     debugfs_create_u32("pings_received", 0600, data->debugfs_dir,
                     &data->pings_received);
+
     debugfs_create_u32("data_err", 0600, data->debugfs_dir,
                     &data->data_err);
+
     debugfs_create_u32("cache_mode", 0600, data->debugfs_dir,
                     &data->cache_mode);
+
     debugfs_create_u32("kernel_test", 0600, data->debugfs_dir,
                     &data->kernel_test);
+    debugfs_create_u32("cache_test_size", 0600, data->debugfs_dir,
+                    &data->cache_test_size);
+    data->dev = &pdev->dev;
     platform_set_drvdata(pdev, data);
+    if (ipc_shmem_reserve_mem(data) != 0) {
+        dev_info(&pdev->dev, "ipc_shmem_reserve_mem failed \n");
+        return -ENOMEM;
+    }
+    ipc_shmem_enable(data, size);
+    data->cache_test_size = IPC_SHMEM_CACHE_TEST_SIZE;
+    data->cache_mode = cache_mode_g;
+
     dev_info(&pdev->dev, "Probed %s with IRQ: %d\n", data->name, irq);
 
     return 0;
@@ -638,6 +861,7 @@ static int ipc_shmem_irq_remove(struct platform_device *pdev)
 
     debugfs_remove_recursive(data->debugfs_dir);
     mbox_free_channel(data->mbox_chan);
+    ipc_shmem_disable(data);
     dev_info(&pdev->dev, "Removed %s\n", data->name);
 
     return 0;
@@ -663,14 +887,17 @@ static int ipc_shmem_irq_init(void)
     int ret = 0;
 
     pr_debug("%s: \n", __FUNCTION__);
+
     root_test_dir = debugfs_create_dir("ipc_shmem_irq", NULL);
     if (!root_test_dir)
         return -ENOMEM;
+
     ret = platform_driver_register(&ipc_shmem_irq_driver);
     if (ret) {
         debugfs_remove_recursive(root_test_dir);
         return ret;
     }
+
     pr_debug("%s: done \n", __FUNCTION__);
 
     return ret;
@@ -694,107 +921,59 @@ static void free_all_danglers(struct list_head *danglers)
     }
 }
 
-static void ipc_shmem_disable(void)
+
+static void ipc_shmem_disable(struct ipc_shmem_irq_data *data)
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0))
-    if(shmem_addr != NULL) {
-        dma_buf_vunmap(dmabuf, &vmap_struct);
-        shmem_addr = NULL;
+    if(shmem_addr == NULL) {
+        pr_info("%s: memory already freed,\n",
+                __FUNCTION__);
+        /* shared memory already freed, update the data struct and exit*/
+        data->dma_alloc_size = 0;
+        data->cpu_handle = NULL;
+        data->dma_region_start = 0;
+        data->is_shemem_alloc = false;
+        return;
     }
-#else
-    if(shmem_addr != NULL) {
-        dma_buf_vunmap(dmabuf, vmap_ptr);
-        shmem_addr = NULL;
-    }
-#endif
+    gen_pool_free(pool, (unsigned long) shmem_addr, shmem_alloc_size);
+    shmem_addr = NULL;
     shmem_alloc_size = 0;
-    if(buf_attachment != NULL) {
-        dma_buf_detach(dmabuf, buf_attachment);
-        buf_attachment = NULL;
-    }
-    if(dmabuf != NULL) {
-        dma_buf_put(dmabuf);
-        dmabuf = NULL;
-    }
+    data->dma_alloc_size = 0;
+    data->cpu_handle = NULL;
+    data->dma_region_start = 0;
+    data->is_shemem_alloc = false;
+    pool = NULL;
+    return;
 }
 
-static int ipc_shmem_enable(size_t alloc_size, bool is_alloc)
+static int ipc_shmem_enable(struct ipc_shmem_irq_data *data,
+                            unsigned long size)
 {
     int ret = 0;
 
-    pr_debug("%s: alloc_size=%d\n", __FUNCTION__, alloc_size);
+    if(shmem_addr != NULL) {
+        pr_info("%s: memory already allocated, mem size=%lu\n",
+                __FUNCTION__, shmem_alloc_size);
+        data->dma_alloc_size = shmem_alloc_size;
+        data->cpu_handle = (void *)shmem_addr;
+        data->is_shemem_alloc = true;
+        data->dma_region_start = dma_region_start;
+        return ret;
+    }
+    shmem_addr = (char *)gen_pool_alloc(pool, size);
+    if (shmem_addr == NULL) {
+        pr_err("%s: Failed to allocate region of size %lu\n",
+                __FUNCTION__, size);
+        return -ENOMEM;
+    }
+    pr_info("%s: success shmem_addr=0x%lx\n",
+            __FUNCTION__,
+           (unsigned long)shmem_addr);
 
-    if (!ipc_shmem_dev) {
-        pr_err("no device found\n");
-        return -ENODEV;
-    }
-    if(is_alloc) {
-        /* buffer alloc will be done in the driver */
-        heap = dma_heap_find(DMA_HEAP_NAME);
-        if (!heap) {
-            pr_err("%s: %s heap not found\n", __FUNCTION__, DMA_HEAP_NAME);
-            return PTR_ERR(heap);
-        }
-
-        dmabuf = dma_heap_buffer_alloc(heap, alloc_size, O_RDWR | O_CLOEXEC, 0);
-        if (IS_ERR(dmabuf)) {
-            pr_err("%s: Failed to allocate dma-buf, alloc_size=%d, err=%d\n",
-                    __FUNCTION__, alloc_size,  PTR_ERR(dmabuf));
-            return PTR_ERR(dmabuf);
-        }
-        shmem_alloc_size = alloc_size;
-    }else {
-        if (dmabuf == NULL) {
-            pr_err("%s: dmabuf not allocated \n", __FUNCTION__);
-            return -ENODEV;
-        }
-    }
-    buf_attachment = dma_buf_attach(dmabuf, ipc_shmem_dev);
-    if (IS_ERR(buf_attachment)) {
-        pr_err("%s: dma_buf_attach() failed with %d\n",
-                __FUNCTION__, PTR_ERR(buf_attachment));
-        ret = PTR_ERR(buf_attachment);
-        goto free_dmabuf;
-    }
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0))
-    ret = dma_buf_vmap(dmabuf, &vmap_struct);
-    if (ret) {
-        pr_err("%s: failed to vmap() a dmabuf, failed with %d\n",
-                __FUNCTION__, ret);
-        goto unmap;
-    }
-    if (!vmap_struct.is_iomem)
-        shmem_addr = vmap_struct.vaddr;
-    else
-        shmem_addr = vmap_struct.vaddr_iomem;
-#else
-    shmem_addr = dma_buf_vmap(dmabuf);
-    if (!shmem_addr) {
-        pr_err("%s: failed to vmap() a dmabuf\n", __FUNCTION__);
-        goto unmap;
-    }
-#endif
-    if(shmem_addr != NULL)    {
-        pr_info("%s: dma_buf_vmap success \n", __FUNCTION__);
-    }else {
-        pr_err("%s: shmem_addr is NULL \n", __FUNCTION__);
-    }
-
-    return ret;
-
-unmap:
-    if(buf_attachment != NULL) {
-        dma_buf_detach(dmabuf, buf_attachment);
-        buf_attachment = NULL;
-    }
-
-free_dmabuf:
-    if(dmabuf != NULL) {
-        dma_buf_put(dmabuf);
-        dmabuf = NULL;
-        shmem_alloc_size = 0;
-    }
-
+    shmem_alloc_size = size;
+    dma_region_start = data->dma_region_start;
+    data->dma_alloc_size = size;
+    data->cpu_handle = (void *)shmem_addr;
+    data->is_shemem_alloc = true;
     return ret;
 }
 
@@ -816,13 +995,66 @@ static int ipcc_shmem_send_signal_to_user(enum ipc_client client,
     t = pid_task(find_pid_ns(app_pid, &init_pid_ns), PIDTYPE_PID);
     rcu_read_unlock();
     if(t == NULL) {
-        pr_err("ipcc_shmem_send_signal_to_user: Invalid callback info \n");
+        pr_err("%s: Invalid callback info \n", __FUNCTION__);
         ret = -EINVAL;
     }else {
         ret = send_sig_info(IPCC_SHMEM_SIG, &info, t);
         if(ret < 0)
-            pr_err("ipcc_shmem_send_signal_to_user: send signal fails %d \n",
-                    ret);
+            pr_err("%s: send signal fails %d \n",
+                    __FUNCTION__, ret);
+    }
+
+    return ret;
+}
+
+static int ipc_shmem_cache_flush_inval(struct ipc_shmem_cache_ops *cache_ops)
+{
+    int ret = 0;
+
+    if(cache_ops == NULL) {
+        pr_err("%s: Invalid param \n", __FUNCTION__);
+        return -EINVAL;
+    }
+    if(cache_ops->size == 0 || cache_ops->buf == NULL) {
+        pr_err("%s: Invalid buffer details %d \n", __FUNCTION__, cache_ops->size);
+        return -EINVAL;
+    }
+    if(cache_ops->flag == CACHE_FLUSH) {
+        ret = end_cpu_access(cache_ops->buf, cache_ops->size, NORMAL_CACHED);
+    }else if(cache_ops->flag == CACHE_INVALIDATE) {
+        ret = begin_cpu_access(cache_ops->buf, cache_ops->size, NORMAL_CACHED);
+    }else {
+        pr_err("%s: Invalid flag %d \n", __FUNCTION__, cache_ops->flag);
+        return -EINVAL;
+    }
+
+    return ret;
+}
+
+static int ipc_shmem_cache_flush_inval_offset(struct ipc_shmem_cache_offset_ops *cache_ops)
+{
+    int ret = 0;
+
+    if(cache_ops == NULL) {
+        pr_err("%s: Invalid param \n", __FUNCTION__);
+        return -EINVAL;
+    }
+    if(cache_ops->size == 0 || cache_ops->buf == NULL) {
+        pr_err("%s: Invalid buffer details %d \n", __FUNCTION__, cache_ops->size);
+        return -EINVAL;
+    }
+    if(shmem_addr != NULL) {
+        cache_ops->buf = shmem_addr + cache_ops->offset;
+        pr_info("%s: addr=0x%llx offset=%d\n",
+                __FUNCTION__, cache_ops->buf, cache_ops->offset);
+    }
+    if(cache_ops->flag == CACHE_FLUSH) {
+        ret = end_cpu_access(cache_ops->buf, cache_ops->size, NORMAL_CACHED);
+    }else if(cache_ops->flag == CACHE_INVALIDATE) {
+        ret = begin_cpu_access(cache_ops->buf, cache_ops->size, NORMAL_CACHED);
+    }else {
+        pr_err("%s: Invalid flag %d \n", __FUNCTION__, cache_ops->flag);
+        return -EINVAL;
     }
 
     return ret;
@@ -832,28 +1064,46 @@ static long ipc_shmem_ioctl(struct file *file,
                             unsigned cmd,
                             unsigned long arg)
 {
+    struct ipc_shmem_cache_ops cache_ops;
+    struct ipc_shmem_cache_offset_ops cache_offset_ops;
+    struct ipc_shmem_reg_cb cb_info;
     int ret = 0;
-    ipcc_shmem_reg_cb_t cb_info;
 
-    pr_debug("ipc_shmem_ioctl: cmd:0x%x \n", cmd);
-    switch (cmd)
-    {
-        case IOCTL_IPCC_SHMEM_REG_IRQ:
+    pr_debug("%s: cmd:0x%x \n", __FUNCTION__, cmd);
+    switch (cmd) {
+        case IOCTL_IPC_SHMEM_REG_IRQ:
             /* Register the application pid */
-            pr_debug("ipc_shmem_ioctl: IOCTL_IPCC_SHMEM_REG_IRQ \n");
+            pr_debug("ipc_shmem_ioctl: IOCTL_IPC_SHMEM_REG_IRQ \n");
             if(copy_from_user(&cb_info,
                             (void __user *)arg,
-                            sizeof(ipcc_shmem_reg_cb_t))) {
+                            sizeof(struct ipc_shmem_reg_cb))) {
                 ret = -EFAULT;
             }else {
                 app_pid = cb_info.pid;
             }
         break;
-        case IOCTL_IPCC_SHMEM_GET_FD:
-        case IOCTL_IPCC_SHMEM_ALLOC_DMA_BUF:
-        default:
-            pr_err("command not supported \n");
-            return -EINVAL;
+    case IOCTL_IPC_SHMEM_CACHE_OPS:
+        if(copy_from_user(&cache_ops,
+                        (void __user *)arg,
+                        sizeof(struct ipc_shmem_cache_ops))) {
+            ret = -EFAULT;
+        }else {
+            ret = ipc_shmem_cache_flush_inval(&cache_ops);
+        }
+    break;
+    case IOCTL_IPC_SHMEM_CACHE_OFFSET_OPS:
+        if(copy_from_user(&cache_offset_ops,
+                        (void __user *)arg,
+                        sizeof(struct ipc_shmem_cache_offset_ops))) {
+            ret = -EFAULT;
+        }else {
+            ret = ipc_shmem_cache_flush_inval_offset(&cache_offset_ops);
+        }
+    break;
+
+    default:
+        pr_err("%s: Invalid command \n", __FUNCTION__);
+        ret = -EINVAL;
     }
 
     return ret;
@@ -866,9 +1116,11 @@ static int ipc_shmem_open(struct inode *inode, struct file *file)
 
     if (!module_data)
         return -ENOMEM;
+
     INIT_LIST_HEAD(&module_data->danglers);
     file->private_data = module_data;
-    pr_debug("ipc_shmem device opened\n");
+
+    pr_debug("%s: device opened\n", __FUNCTION__);
 
     return 0;
 }
@@ -878,8 +1130,10 @@ static int ipc_shmem_release(struct inode *inode, struct file *file)
     struct ipc_shmem_module_data *module_data = file->private_data;
 
     free_all_danglers(&module_data->danglers);
+
     kfree(module_data);
-    pr_debug("ipc_shmem device closed\n");
+
+    pr_debug("%s: device closed\n", __FUNCTION__);
 
     return 0;
 }
@@ -887,12 +1141,18 @@ static int ipc_shmem_release(struct inode *inode, struct file *file)
 static ssize_t ipc_shmem_read(struct file *filep, char *buffer,
     size_t length, loff_t *offset)
 {
+
+    pr_info("%s:  \n", __FUNCTION__);
+
     if(shmem_addr == NULL)
         return 0;
+
     if(length > SHMEM_SIZE)
         length = SHMEM_SIZE;
+
     if(copy_to_user((void __user *)buffer, shmem_addr, length))
         return -EFAULT;
+
     pr_debug("%s: done length=%d\n", __FUNCTION__, length);
 
     return length;
@@ -901,10 +1161,15 @@ static ssize_t ipc_shmem_read(struct file *filep, char *buffer,
 static int ipc_shmem_mmap(struct file *filp, struct vm_area_struct *vma)
 {
     u64 req_len, pgoff, req_start;
-    unsigned long phy_addr = SHMEM_PHY_ADDR;
-    unsigned long size = SHMEM_SIZE;
+    unsigned long phy_addr = shmem_phy_addr;
+    unsigned long size = shmem_size;
     int ret = 0;
 
+    if(shmem_phy_addr <= 0 || size <= 0) {
+        pr_err("%s: Memory Invalid  addr=0x%lx size=%lu\n",
+               __FUNCTION__, shmem_phy_addr, size);
+        return -EINVAL;
+    }
     req_len = vma->vm_end - vma->vm_start;
     pgoff = vma->vm_pgoff &
         ((1U << (IPCC_SHMEM_PLATFORM_OFFSET_SHIFT - PAGE_SHIFT)) - 1);
@@ -912,12 +1177,15 @@ static int ipc_shmem_mmap(struct file *filp, struct vm_area_struct *vma)
 
     if (size < PAGE_SIZE || req_start + req_len > size)
         return -EINVAL;
-    /* map the area as writecombine/uncached */
-    vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+
+    if(cache_mode_g == NORMAL_NON_CACHED)
+        vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+
     vma->vm_pgoff = (phy_addr >> PAGE_SHIFT) + pgoff;
 
-    pr_debug("%s: phy_addr=0x%lx pgoff=0x%lx, size=%d\n",
-            __FUNCTION__, phy_addr, vma->vm_pgoff, req_len);
+    pr_info("%s: phy_addr=0x%lx pgoff=0x%lx, size=%d, cache mode=%d\n",
+            __FUNCTION__, phy_addr, vma->vm_pgoff, req_len, cache_mode_g);
+
     ret = remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
                    req_len, vma->vm_page_prot);
     if (ret != 0) {
@@ -931,12 +1199,17 @@ static int ipc_shmem_mmap(struct file *filp, struct vm_area_struct *vma)
 static ssize_t ipc_shmem_write(struct file *filep, const char *buffer,
     size_t length, loff_t *offset)
 {
+    pr_debug("%s:  \n", __FUNCTION__);
+
     if(shmem_addr == NULL)
         return 0;
+
     if(length > SHMEM_SIZE)
         length = SHMEM_SIZE;
+
     if(copy_from_user(shmem_addr, (void __user *)buffer, length))
         return -EFAULT;
+
     pr_debug("%s: done length=%d\n", __FUNCTION__, length);
 
     return length;
@@ -960,36 +1233,30 @@ static int ipc_shmem_device_create(void)
                                       &ipc_shmem_fops);
     if (ipc_shmem_major < 0) {
         rc = ipc_shmem_major;
-        pr_err("Unable to register chrdev: %d\n", ipc_shmem_major);
+        pr_err("%s: Unable to register chrdev: %d\n",
+               __FUNCTION__, ipc_shmem_major);
         goto out;
     }
+
     ipc_shmem_class = class_create(THIS_MODULE, IPC_SHMEM_DEV_NAME);
     if (IS_ERR(ipc_shmem_class)) {
         rc = PTR_ERR(ipc_shmem_class);
-        pr_err("Unable to create class: %d\n", rc);
+        pr_err("%s: Unable to create class: %d\n", __FUNCTION__, rc);
         goto err_create_class;
     }
+
     ipc_shmem_dev = device_create(ipc_shmem_class, NULL,
                     MKDEV(ipc_shmem_major, 0),
                     NULL, IPC_SHMEM_DEV_NAME);
+
     if (IS_ERR(ipc_shmem_dev)) {
         rc = PTR_ERR(ipc_shmem_dev);
-        pr_err("Unable to create device: %d\n", rc);
+        pr_err("%s: Unable to create device: %d\n", __FUNCTION__, rc);
         goto err_create_device;
     }
-    /*
-     * Set both the streaming DMA mask and the coherent DMA mask
-     * Inform the kernel about devices DMA addressing capabilities
-     */
-    rc = dma_coerce_mask_and_coherent(ipc_shmem_dev, DMA_BIT_MASK(64));
-    if (rc) {
-        pr_err("Unable to set dma_masks for device: %d\n", rc);
-        goto err_destroy_device;
-    }
+
     return rc;
 
-err_destroy_device:
-    device_destroy(ipc_shmem_class, MKDEV(ipc_shmem_major, 0));
 err_create_device:
     class_destroy(ipc_shmem_class);
 err_create_class:
@@ -1000,7 +1267,6 @@ out:
 
 static void ipc_shmem_device_destroy(void)
 {
-    ipc_shmem_disable();
     device_destroy(ipc_shmem_class, MKDEV(ipc_shmem_major, 0));
     class_destroy(ipc_shmem_class);
     unregister_chrdev(ipc_shmem_major, IPC_SHMEM_DEV_NAME);
@@ -1010,8 +1276,13 @@ static int ipc_shmem_init(void)
 {
     int rc = 0;
 
-    pr_debug("%s: ipc_from_user =%d \n",
+    pr_info("%s: [TEST]ipc_from_user =%d \n",
             __FUNCTION__, ipc_from_user);
+
+    if(ipc_from_user < 0) {
+        pr_info("%s: probe skipped \n", __FUNCTION__);
+        return rc;
+    }
     rc = ipc_shmem_device_create();
     if(rc) {
         pr_err("%s: ipc_shmem_device_create　failed rc=%d \n",
@@ -1031,19 +1302,25 @@ static int ipc_shmem_init(void)
 
 static void ipc_shmem_exit(void)
 {
+    if(ipc_from_user < 0) {
+        pr_info("%s: probe skipped \n", __FUNCTION__);
+        return;
+    }
     ipc_shmem_device_destroy();
+
     if(!ipc_from_user) {
         ipc_shmem_irq_exit();
     }
+
     return;
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,16,0))
 MODULE_IMPORT_NS(DMA_BUF);
-#endif
 MODULE_PARM_DESC(ipc_from_user, "Access IPCC from user space");
 module_param(ipc_from_user,int,S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("QCOM Test Driver for Shared Memory & IPCC");
 module_init(ipc_shmem_init);
 module_exit(ipc_shmem_exit);
+
+
