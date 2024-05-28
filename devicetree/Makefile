@@ -1,12 +1,23 @@
-# SPDX-License-Identifier: GPL-2.0
-dtb-y += sa8775p_audiolite_overlay.dtbo
-dtb-y += safelinux-system-cfg/sa8775p_overlay.dtbo
-dtb-y += safelinux-system-cfg/sa8775p-qvp/sa8775p-qvp.dtb
-dtb-y += safelinux-system-cfg/sa8770p-ride/sa8770p-ride.dtb
-dtb-y += safelinux-system-cfg/sa8775p-ride-mx/sa8775p-ride-mx.dtb
-dtb-y += safelinux-system-cfg/sa8650p-ride/sa8650p-ride.dtb
-dtb-y += safelinux-system-cfg/sa8255p-ride/sa8255p-ride.dtb
-dtb-y += safelinux-system-cfg/sa7255p-ride/sa7255p-ride.dtb
+AUDIO_DEVICETREE_ROOT=$(KERNEL_SRC)/$(M)
 
-#include common target file
-include $(PWD)/Makefile.common
+KBUILD_OPTIONS += KBUILD_EXTMOD_DTS=.
+KBUILD_OPTIONS += KERNEL_ROOT=$(ROOT_DIR)/$(KERNEL_DIR)
+KBUILD_OPTIONS += dtstree=$(M)
+KBUILD_OPTIONS += KBUILD_EXTMOD=
+KBUILD_OPTIONS += MODNAME=audio-devicetree
+KBUILD_OPTIONS += DTC_INCLUDE="${AUDIOLITE_DTC_INCLUDE}"
+
+ifeq ($(ENABLE_AUDIOLITE_OVERLAY), yes)
+KBUILD_OPTIONS += CONFIG_AUDIOLITE_OVERLAY=y
+endif
+
+all: dtbs
+
+dtbs:
+	$(MAKE) -C $(KERNEL_SRC) dtbs $(KBUILD_OPTIONS)
+
+modules_install:
+	$(MAKE) -C $(KERNEL_SRC) modules_install
+
+clean:
+	$(MAKE) -C $(KERNEL_SRC) clean

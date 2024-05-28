@@ -1,0 +1,6 @@
+dtbo-y += sa8775p_audiolite_common.dtbo
+dtbo-$(CONFIG_AUDIOLITE_OVERLAY) += sa8775p_audiolite_overlay.dtbo
+
+always-y := $(dtb-y) $(dtbo-y)
+subdir-y := $(dts-dirs)
+clean-files := *.dtb *.dtbo
