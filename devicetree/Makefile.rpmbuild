@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: GPL-2.0
+
+ARCH?=arm64
+LRH_ARCH?=aarch64
+
+TECHPACK_BINDING_DIR=$(PWD)
+TECHPACK_DTSTREE=$(TECHPACK_BINDING_DIR)
+SAFELINUX_DTSTREE=$(PWD)/safelinux-system-cfg
+
+KDIR ?= $(SAFELINUX_DTSTREE)/centos-stream-9
+
+#Include the paths for DT binding header files. First two are standard paths
+# found in mainline kernel. Post that, add any paths for module specific, out
+# of tree definition of the device tree bindings. Here, last two paths contain
+# the out of tree device tree bindings.
+TECHPACK_INCLUDE := $(KDIR)/scripts/dtc/include-prefixes
+TECHPACK_INCLUDE += $(KDIR)/include
+TECHPACK_INCLUDE += $(KDIR)/arch/$(ARCH)/boot/dts/qcom
+TECHPACK_INCLUDE += $(TECHPACK_BINDING_DIR)
+
+all: defconfig
+	$(MAKE) -C $(KDIR) ARCH=$(ARCH) dtstree=$(TECHPACK_DTSTREE) DTC_INCLUDE="$(TECHPACK_INCLUDE)" DTC_FLAGS="-@" dtbs
+
+defconfig:
+	$(MAKE) -C $(KDIR) ARCH=$(ARCH) dist-configs
+	cp $(KDIR)/redhat/configs/kernel-automotive-5.14.0-$(LRH_ARCH).config \
+		$(KDIR)/arch/$(ARCH)/configs/defconfig
+	$(MAKE) -C $(KDIR) ARCH=$(ARCH) defconfig
+
+.PHONY: clean
+clean:
+	find  \( -name ".*.cmd" -o -name ".*.tmp" -o -name "*.dtb"  -o -name "*.dtbo" \) -delete
+

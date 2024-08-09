@@ -1,23 +1,7 @@
-AUDIO_DEVICETREE_ROOT=$(KERNEL_SRC)/$(M)
-
-KBUILD_OPTIONS += KBUILD_EXTMOD_DTS=.
-KBUILD_OPTIONS += KERNEL_ROOT=$(ROOT_DIR)/$(KERNEL_DIR)
-KBUILD_OPTIONS += dtstree=$(M)
-KBUILD_OPTIONS += KBUILD_EXTMOD=
-KBUILD_OPTIONS += MODNAME=audio-devicetree
-KBUILD_OPTIONS += DTC_INCLUDE="${AUDIOLITE_DTC_INCLUDE}"
-
-ifeq ($(ENABLE_AUDIOLITE_OVERLAY), yes)
-KBUILD_OPTIONS += CONFIG_AUDIOLITE_OVERLAY=y
+ifeq ($(RPM_BUILD), true)
+dtb-y += sa8775p_audiolite_common.dtbo
+dtb-$(CONFIG_AUDIOLITE_OVERLAY) += sa8775p_audiolite_overlay.dtbo
+include ${PWD}/Makefile.rpmbuild
+else
+include ${PWD}/Makefile.bbbuild
 endif
-
-all: dtbs
-
-dtbs:
-	$(MAKE) -C $(KERNEL_SRC) dtbs $(KBUILD_OPTIONS)
-
-modules_install:
-	$(MAKE) -C $(KERNEL_SRC) modules_install
-
-clean:
-	$(MAKE) -C $(KERNEL_SRC) clean

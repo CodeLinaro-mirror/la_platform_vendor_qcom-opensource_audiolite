@@ -1275,8 +1275,8 @@ static int ipc_shmem_init(void)
 {
     int rc = 0;
 
-    pr_info("%s: [TEST]ipc_from_user =%d \n",
-            __FUNCTION__, ipc_from_user);
+    pr_info("%s: [TEST]ipc_from_user =%d, default cache_mode=%d\n",
+            __FUNCTION__, ipc_from_user, cache_mode_g);
 
     if(ipc_from_user < 0) {
         pr_info("%s: probe skipped \n", __FUNCTION__);
@@ -1317,6 +1317,8 @@ static void ipc_shmem_exit(void)
 MODULE_IMPORT_NS(DMA_BUF);
 MODULE_PARM_DESC(ipc_from_user, "Access IPCC from user space");
 module_param(ipc_from_user,int,S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+MODULE_PARM_DESC(cache_mode_g, "Cache mode for Carved-out memory");
+module_param(cache_mode_g,int,S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("QCOM Test Driver for Shared Memory & IPCC");
 module_init(ipc_shmem_init);

@@ -373,8 +373,10 @@ static enum ipc_client get_ipc_client(const char *name)
 /* invalidate the cache before cpu reads the buffer */
 static int begin_cpu_access(void *addr, size_t size, uint32_t cache_mode)
 {
+#ifdef CONFIG_ARCH_HAS_PMEM_API
     if(cache_mode)
         arch_invalidate_pmem(addr, size);
+#endif
 
     return 0;
 }
@@ -382,8 +384,10 @@ static int begin_cpu_access(void *addr, size_t size, uint32_t cache_mode)
 /* flush the cache after cpu write to the buffer */
 static int end_cpu_access(void *addr, size_t size, uint32_t cache_mode)
 {
+#ifdef CONFIG_ARCH_HAS_PMEM_API
     if(cache_mode)
         arch_invalidate_pmem(addr, size);
+#endif
 
     return 0;
 }
