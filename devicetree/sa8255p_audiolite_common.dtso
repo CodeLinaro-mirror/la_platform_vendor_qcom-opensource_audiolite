@@ -1,0 +1,147 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024, Linaro Limited
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <safelinux-system-cfg/oot-dt-bindings/qcom-ipcc.h>
+#include <audiolite-dt-bindings/qcom-audiolite-ipcc.h>
+#include <audiolite-dt-bindings/qcom-shmem.h>
+
+/ {
+	model = "Qualcomm SA8255P Ride";
+	compatible = "Qualcomm SA8255P Ride";
+};
+
+
+&soc {
+	ipcc_compute_l0: audiolite@448000 {
+		compatible = "qcom,sa8775p-ipcc", "qcom,ipcc";
+		reg = <0x0 0x448000 0x0 0x1000>;
+		interrupts = <GIC_SPI 230 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		#mbox-cells = <2>;
+	};
+
+	ipcc_self_ping_apss_cl0: ipcc-self-ping-apss_cl0 {
+		compatible = "qcom,ipcc-self-ping";
+		mboxes = <&ipcc_compute_l0 IPCC_CLIENT_APSS_NS1
+				IPCC_COMPUTE_L0_SIGNAL_MSG>;
+		interrupt-parent = <&ipcc_compute_l0>;
+		interrupts = <IPCC_CLIENT_APSS_NS1
+				IPCC_COMPUTE_L0_SIGNAL_MSG
+				IRQ_TYPE_EDGE_RISING>;
+		memory-region = <&ipc_shared_mem>;
+	};
+
+	ipcc_self_ping_apss_cl0_ack: ipcc-self-ping-apss_cl0_ack {
+		compatible = "qcom,ipcc-self-ping";
+		mboxes = <&ipcc_compute_l0 IPCC_CLIENT_APSS_NS1
+				IPCC_COMPUTE_L0_SIGNAL_ACK>;
+		interrupt-parent = <&ipcc_compute_l0>;
+		interrupts = <IPCC_CLIENT_APSS_NS1
+				IPCC_COMPUTE_L0_SIGNAL_ACK
+				IRQ_TYPE_EDGE_RISING>;
+		memory-region = <&ipc_shared_mem>;
+	};
+
+	ipcc_self_ping_adsp_cl0: ipcc-self-ping-adsp_cl0 {
+		compatible = "qcom,ipcc-self-ping";
+		mboxes = <&ipcc_compute_l0 IPCC_CLIENT_LPASS
+				IPCC_COMPUTE_L0_SIGNAL_MSG>;
+		interrupt-parent = <&ipcc_compute_l0>;
+		interrupts = <IPCC_CLIENT_LPASS
+				IPCC_COMPUTE_L0_SIGNAL_MSG
+				IRQ_TYPE_EDGE_RISING>;
+		memory-region = <&ipc_shared_mem>;
+	};
+
+	ipcc_self_ping_adsp_cl0_ack: ipcc-self-ping-adsp_cl0_ack {
+		compatible = "qcom,ipcc-self-ping";
+		mboxes = <&ipcc_compute_l0 IPCC_CLIENT_LPASS
+				IPCC_COMPUTE_L0_SIGNAL_ACK>;
+		interrupt-parent = <&ipcc_compute_l0>;
+		interrupts = <IPCC_CLIENT_LPASS
+				IPCC_COMPUTE_L0_SIGNAL_ACK
+				IRQ_TYPE_EDGE_RISING>;
+		memory-region = <&ipc_shared_mem>;
+	};
+
+	ipcc_self_ping_gpdsp0_cl0: ipcc-self-ping-gpdsp0_cl0 {
+		compatible = "qcom,ipcc-self-ping";
+		mboxes = <&ipcc_compute_l0 IPCC_CLIENT_GPDSP0
+				IPCC_COMPUTE_L0_SIGNAL_MSG>;
+		interrupt-parent = <&ipcc_compute_l0>;
+		interrupts = <IPCC_CLIENT_GPDSP0
+				IPCC_COMPUTE_L0_SIGNAL_MSG
+				IRQ_TYPE_EDGE_RISING>;
+		memory-region = <&ipc_shared_mem>;
+	};
+
+	ipcc_self_ping_gpdsp0_cl0_ack: ipcc-self-ping-gpdsp0_cl0_ack {
+		compatible = "qcom,ipcc-self-ping";
+		mboxes = <&ipcc_compute_l0 IPCC_CLIENT_GPDSP0
+				IPCC_COMPUTE_L0_SIGNAL_ACK>;
+		interrupt-parent = <&ipcc_compute_l0>;
+		interrupts = <IPCC_CLIENT_GPDSP0
+				IPCC_COMPUTE_L0_SIGNAL_ACK
+				IRQ_TYPE_EDGE_RISING>;
+		memory-region = <&ipc_shared_mem>;
+	};
+
+	ipcc_self_ping_gpdsp1_cl0: ipcc-self-ping-gpdsp1_cl0 {
+		compatible = "qcom,ipcc-self-ping";
+		mboxes = <&ipcc_compute_l0 IPCC_CLIENT_GPDSP1
+				IPCC_COMPUTE_L0_SIGNAL_MSG>;
+		interrupt-parent = <&ipcc_compute_l0>;
+		interrupts = <IPCC_CLIENT_GPDSP1
+				IPCC_COMPUTE_L0_SIGNAL_MSG
+				IRQ_TYPE_EDGE_RISING>;
+		memory-region = <&ipc_shared_mem>;
+	};
+
+	ipcc_self_ping_gpdsp1_cl0_ack: ipcc-self-ping-gpdsp1_cl0_ack {
+		compatible = "qcom,ipcc-self-ping";
+		mboxes = <&ipcc_compute_l0 IPCC_CLIENT_GPDSP1
+				IPCC_COMPUTE_L0_SIGNAL_ACK>;
+		interrupt-parent = <&ipcc_compute_l0>;
+		interrupts = <IPCC_CLIENT_GPDSP1
+				IPCC_COMPUTE_L0_SIGNAL_ACK
+				IRQ_TYPE_EDGE_RISING>;
+		memory-region = <&ipc_shared_mem>;
+	};
+
+	umd_audiolite@448000 {
+		compatible = "qcom,vfio-platform";
+		reg = <0x0 0x00448000 0x0 0x1000>;
+
+		interrupts-extended = <&ipcc_compute_l0 IPCC_CLIENT_LPASS   IPCC_COMPUTE_L0_SIGNAL_MSG IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l0 IPCC_CLIENT_GPDSP0  IPCC_COMPUTE_L0_SIGNAL_MSG IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l0 IPCC_CLIENT_GPDSP1  IPCC_COMPUTE_L0_SIGNAL_MSG IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l0 IPCC_CLIENT_LPASS   IPCC_COMPUTE_L0_SIGNAL_ACK IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l0 IPCC_CLIENT_GPDSP0  IPCC_COMPUTE_L0_SIGNAL_ACK IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l0 IPCC_CLIENT_GPDSP1  IPCC_COMPUTE_L0_SIGNAL_ACK IRQ_TYPE_EDGE_RISING>;
+
+		iommus = <&apps_smmu 0x8E0 0x0>;
+		dma-coherent;
+	};
+};
+
+
+&{/reserved-memory} {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	ranges;
+
+	ipc_shared_mem: ipc_shared_mem@0xad000000 {
+		compatible = "shared-dma-pool";
+		no-map;
+		reg = <0x0 0xad000000 0x0 0x2000000>;
+	};
+};

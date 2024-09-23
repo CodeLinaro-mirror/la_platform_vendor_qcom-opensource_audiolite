@@ -67,6 +67,7 @@
  * Audio config - 1 MB
  */
 /* shared memory offset for the LAGVM */
+#define SHMEM_METADATA_SIZE                 (0x000080)    /* 128B*/
 #define SHMEM_WRITE_AREA_SIZE               (0xA00000)    /* 10MB */
 #define SHMEM_READ_AREA_SIZE                (0xA00000)    /* 10MB */
 #define SHMEM_AUDIO_CONF_AREA_SIZE          (0x100000)    /* 1MB */
@@ -80,7 +81,8 @@
  * Shared memory area to send or receive the cmd, audio-data,
  * audio-hardware configuration with DSPs
  */
-#define SHMEM_WRITE_OFFSET                  (0x0)
+#define SHMEM_METADATA_OFFSET               (0x000000)    /* start of the shmem */
+#define SHMEM_WRITE_OFFSET                  (SHMEM_METADATA_OFFSET+SHMEM_METADATA_SIZE)
 #define SHMEM_READ_OFFSET                   (SHMEM_WRITE_OFFSET+ \
                                              SHMEM_WRITE_AREA_SIZE)
 
