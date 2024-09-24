@@ -14,8 +14,8 @@
 #include <audiolite-dt-bindings/qcom-shmem.h>
 
 / {
-	model = "Qualcomm Technologies, Inc. SA8775P Ride Firmware Managed";
-	compatible = "qcom,sa8775p-ride-fw-managed";
+	model = "Qualcomm SA8255P Ride";
+	compatible = "Qualcomm SA8255P Ride";
 };
 
 

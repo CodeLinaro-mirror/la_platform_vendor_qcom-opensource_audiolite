@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024, Linaro Limited
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <safelinux-system-cfg/oot-dt-bindings/qcom-ipcc.h>
+#include <audiolite-dt-bindings/qcom-audiolite-ipcc.h>
+#include <audiolite-dt-bindings/qcom-shmem.h>
+
+/ {
+	model = "Qualcomm SA8255P Ride";
+	compatible = "Qualcomm SA8255P Ride";
+};
+
+
+&soc {
+	auto_vm_0: gh-secure-vm-loader@0 {
+		shared-regions = <&ipc_shared_mem>;
+	};
+};
+
+
+&{/reserved-memory} {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	ranges;
+
+	ipc_shared_mem: ipc_shared_mem@0xad000000 {
+		compatible = "shared-dma-pool";
+		no-map;
+		reg = <0x0 0xad000000 0x0 0x2000000>;
+		qcom,dst-vmids = <VMID_ADSP_Q6 AC_VM_SSC_Q6 VMID_GPDSP1_Q6>;
+		qcom,dst-perms = <QCOM_PERM_RWX QCOM_PERM_RWX QCOM_PERM_RWX>;
+		qcom,src-vmids = <VMID_ADSP_Q6 AC_VM_SSC_Q6 VMID_GPDSP1_Q6>;
+		qcom,src-perms = <QCOM_PERM_RWX QCOM_PERM_RWX QCOM_PERM_RWX>;
+		qcom,is-shared;
+		gunyah-label = <0x49>;
+	};
+
+	audio_mdf_mem: audio_mdf_region@ae000000 {
+		status = "disabled";
+	};
+};
