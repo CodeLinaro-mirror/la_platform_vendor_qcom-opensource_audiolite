@@ -12,6 +12,11 @@
 #define VMID_ADSP_Q6			0x6
 #define VMID_GPDSP1_Q6			0x2C
 
+/* Nord VMIDs */
+#define VMID_ADSP0_Q6			0x6
+#define VMID_ADSP1_Q6			0x5
+#define VMID_ADSP2_Q6			0x2C
+
 /* Access permissions */
 #define QCOM_PERM_READ			0x4
 #define QCOM_PERM_WRITE			0x2
