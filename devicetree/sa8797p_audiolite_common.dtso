@@ -21,9 +21,9 @@
 
 
 &soc {
-	ipcc_compute_l1: audiolite@9188000 {
+	ipcc_compute_l1: audiolite@9185000 {
 		compatible = "qcom,sa8797p-ipcc", "qcom,ipcc";
-		reg = <0x0 0x9188000 0x0 0x1000>;
+		reg = <0x0 0x9185000 0x0 0x1000>;
 		interrupts = <GIC_SPI 231 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-controller;
 		#interrupt-cells = <3>;
@@ -118,9 +118,9 @@
 		memory-region = <&mdf_mem>;
 	};
 
-	umd_audiolite@9188000 {
+	umd_audiolite@9185000 {
 		compatible = "qcom,vfio-platform";
-		reg = <0x0 0x9188000 0x0 0x1000>;
+		reg = <0x0 0x9185000 0x0 0x1000>;
 		interrupts-extended = <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP0 IPCC_COMPUTE_L1_SIGNAL_MSG IRQ_TYPE_EDGE_RISING>,
 							  <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP1 IPCC_COMPUTE_L1_SIGNAL_MSG IRQ_TYPE_EDGE_RISING>,
 							  <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP2 IPCC_COMPUTE_L1_SIGNAL_MSG IRQ_TYPE_EDGE_RISING>,
@@ -137,9 +137,9 @@
 		dma-coherent;
 	};
 
-	umd_audio_hlos1@9188000 {
+	umd_audio_hlos1@9185000 {
 		compatible = "qcom,vfio-platform";
-		reg = <0x0 0x9188000 0x0 0x1000>;
+		reg = <0x0 0x9185000 0x0 0x1000>;
 		interrupts-extended = <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP0 IPCC_COMPUTE_L1_SIGNAL_TUNING IRQ_TYPE_EDGE_RISING>, /* Tuning */
 							<&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP0 IPCC_COMPUTE_L1_SIGNAL_TUNING_ACK IRQ_TYPE_EDGE_RISING>;   /* Tuning ACK */
 
@@ -147,9 +147,9 @@
 		dma-coherent;
 	};
 
-	umd_audio_hlos2@9188000 {
+	umd_audio_hlos2@9185000 {
 		compatible = "qcom,vfio-platform";
-		reg = <0x0 0x9188000 0x0 0x1000>;
+		reg = <0x0 0x9185000 0x0 0x1000>;
 		interrupts-extended = <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP0 IPCC_COMPUTE_L1_SIGNAL_PROCESSING IRQ_TYPE_EDGE_RISING>, /* MultiCore Process*/
 							<&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP0 IPCC_COMPUTE_L1_SIGNAL_PROCESSING_ACK IRQ_TYPE_EDGE_RISING>; /* MultiCore Process ACK */
 
