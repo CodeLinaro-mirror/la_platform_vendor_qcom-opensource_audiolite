@@ -915,9 +915,13 @@ static void ipc_shmem_irq_exit(void)
 static void free_all_danglers(struct list_head *danglers)
 {
     struct list_head *iter, *tmp;
+
+    if (danglers == NULL) {
+        return; // Return early if the list head is NULL
+    }
+
     list_for_each_safe(iter, tmp, danglers) {
-        struct dangling_allocation *dangler =
-            container_of(iter, struct dangling_allocation, list);
+        struct dangling_allocation *dangler = container_of(iter, struct dangling_allocation, list);
         __free_pages(dangler->page, dangler->order);
         list_del(iter);
         kfree(dangler);
