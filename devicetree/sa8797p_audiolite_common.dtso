@@ -1,0 +1,159 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+//#include <safelinux-system-cfg/oot-dt-bindings/qcom-ipcc-sa8797p.h>
+//#include <base-devicetree/arch/arm64/boot/dts/qcom/oot-dt-bindings/qcom-ipcc-sa8797p.h>
+#include <audiolite-dt-bindings/qcom-audiolite-ipcc-sa8797p.h>
+#include <audiolite-dt-bindings/qcom-shmem.h>
+
+/ {
+	model = "Qualcomm SA8797";
+	compatible = "qcom,sa8797p-rumi", "qcom,sa8797p";
+	qcom,board-id = <0xf 0>;
+};
+
+
+&soc {
+	ipcc_compute_l1: audiolite@9188000 {
+		compatible = "qcom,sa8797p-ipcc", "qcom,ipcc";
+		reg = <0x0 0x9188000 0x0 0x1000>;
+		interrupts = <GIC_SPI 231 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		#mbox-cells = <2>;
+	};
+
+	ipcc_self_ping_apss_cl1: ipcc-self-ping-apss_cl1 {
+		compatible = "qcom,ipcc-self-ping";
+		mboxes = <&ipcc_compute_l1 IPCC_COMPUTE_L1_APSS_NS1
+				IPCC_COMPUTE_L1_SIGNAL_MSG>;
+		interrupt-parent = <&ipcc_compute_l1>;
+		interrupts = <IPCC_COMPUTE_L1_APSS_NS1
+				IPCC_COMPUTE_L1_SIGNAL_MSG
+				IRQ_TYPE_EDGE_RISING>;
+		memory-region = <&mdf_mem>;
+	};
+
+	ipcc_self_ping_apss_cl1_ack: ipcc-self-ping-apss_cl1_ack {
+		compatible = "qcom,ipcc-self-ping";
+		mboxes = <&ipcc_compute_l1 IPCC_COMPUTE_L1_APSS_NS1
+				IPCC_COMPUTE_L1_SIGNAL_ACK>;
+		interrupt-parent = <&ipcc_compute_l1>;
+		interrupts = <IPCC_COMPUTE_L1_APSS_NS1
+				IPCC_COMPUTE_L1_SIGNAL_ACK
+				IRQ_TYPE_EDGE_RISING>;
+		memory-region = <&mdf_mem>;
+	};
+
+	ipcc_self_ping_adsp0_cl1: ipcc-self-ping-adsp0_cl1 {
+		compatible = "qcom,ipcc-self-ping";
+		mboxes = <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP0
+				IPCC_COMPUTE_L1_SIGNAL_MSG>;
+		interrupt-parent = <&ipcc_compute_l1>;
+		interrupts = <IPCC_COMPUTE_L1_ADSP0
+				IPCC_COMPUTE_L1_SIGNAL_MSG
+				IRQ_TYPE_EDGE_RISING>;
+		memory-region = <&mdf_mem>;
+	};
+
+	ipcc_self_ping_adsp0_cl1_ack: ipcc-self-ping-adsp0_cl1_ack {
+		compatible = "qcom,ipcc-self-ping";
+		mboxes = <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP0
+				IPCC_COMPUTE_L1_SIGNAL_ACK>;
+		interrupt-parent = <&ipcc_compute_l1>;
+		interrupts = <IPCC_COMPUTE_L1_ADSP0
+				IPCC_COMPUTE_L1_SIGNAL_ACK
+				IRQ_TYPE_EDGE_RISING>;
+		memory-region = <&mdf_mem>;
+	};
+
+	ipcc_self_ping_adsp1_cl1: ipcc-self-ping-adsp1_cl1 {
+		compatible = "qcom,ipcc-self-ping";
+		mboxes = <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP1
+				IPCC_COMPUTE_L1_SIGNAL_MSG>;
+		interrupt-parent = <&ipcc_compute_l1>;
+		interrupts = <IPCC_COMPUTE_L1_ADSP1
+				IPCC_COMPUTE_L1_SIGNAL_MSG
+				IRQ_TYPE_EDGE_RISING>;
+		memory-region = <&mdf_mem>;
+	};
+
+	ipcc_self_ping_adsp1_cl1_ack: ipcc-self-ping-adsp1_cl1_ack {
+		compatible = "qcom,ipcc-self-ping";
+		mboxes = <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP1
+				IPCC_COMPUTE_L1_SIGNAL_ACK>;
+		interrupt-parent = <&ipcc_compute_l1>;
+		interrupts = <IPCC_COMPUTE_L1_ADSP1
+				IPCC_COMPUTE_L1_SIGNAL_ACK
+				IRQ_TYPE_EDGE_RISING>;
+		memory-region = <&mdf_mem>;
+	};
+
+	ipcc_self_ping_adsp2_cl1: ipcc-self-ping-adsp2_cl1 {
+		compatible = "qcom,ipcc-self-ping";
+		mboxes = <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP2
+				IPCC_COMPUTE_L1_SIGNAL_MSG>;
+		interrupt-parent = <&ipcc_compute_l1>;
+		interrupts = <IPCC_COMPUTE_L1_ADSP2
+				IPCC_COMPUTE_L1_SIGNAL_MSG
+				IRQ_TYPE_EDGE_RISING>;
+		memory-region = <&mdf_mem>;
+	};
+
+	ipcc_self_ping_adsp2_cl1_ack: ipcc-self-ping-adsp2_cl1_ack {
+		compatible = "qcom,ipcc-self-ping";
+		mboxes = <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP2
+				IPCC_COMPUTE_L1_SIGNAL_ACK>;
+		interrupt-parent = <&ipcc_compute_l1>;
+		interrupts = <IPCC_COMPUTE_L1_ADSP2
+				IPCC_COMPUTE_L1_SIGNAL_ACK
+				IRQ_TYPE_EDGE_RISING>;
+		memory-region = <&mdf_mem>;
+	};
+
+	umd_audiolite@9188000 {
+		compatible = "qcom,vfio-platform";
+		reg = <0x0 0x9188000 0x0 0x1000>;
+		interrupts-extended = <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP0 IPCC_COMPUTE_L1_SIGNAL_MSG IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP1 IPCC_COMPUTE_L1_SIGNAL_MSG IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP2 IPCC_COMPUTE_L1_SIGNAL_MSG IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP0 IPCC_COMPUTE_L1_SIGNAL_ACK IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP1 IPCC_COMPUTE_L1_SIGNAL_ACK IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP2 IPCC_COMPUTE_L1_SIGNAL_ACK IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP0 IPCC_COMPUTE_L1_SIGNAL_EVENT IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP1 IPCC_COMPUTE_L1_SIGNAL_EVENT IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP2 IPCC_COMPUTE_L1_SIGNAL_EVENT IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP0 IPCC_COMPUTE_L1_SIGNAL_EVENT_ACK IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP1 IPCC_COMPUTE_L1_SIGNAL_EVENT_ACK IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP2 IPCC_COMPUTE_L1_SIGNAL_EVENT_ACK IRQ_TYPE_EDGE_RISING>;
+		iommus = <&apps_smmu_0 0x0440 0x0>;
+		dma-coherent;
+	};
+
+	umd_audio_hlos1@9188000 {
+		compatible = "qcom,vfio-platform";
+		reg = <0x0 0x9188000 0x0 0x1000>;
+		interrupts-extended = <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP0 IPCC_COMPUTE_L1_SIGNAL_TUNING IRQ_TYPE_EDGE_RISING>, /* Tuning */
+							<&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP0 IPCC_COMPUTE_L1_SIGNAL_TUNING_ACK IRQ_TYPE_EDGE_RISING>;   /* Tuning ACK */
+
+		iommus = <&apps_smmu_0 0x0820 0x0>;
+		dma-coherent;
+	};
+
+	umd_audio_hlos2@9188000 {
+		compatible = "qcom,vfio-platform";
+		reg = <0x0 0x9188000 0x0 0x1000>;
+		interrupts-extended = <&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP0 IPCC_COMPUTE_L1_SIGNAL_PROCESSING IRQ_TYPE_EDGE_RISING>, /* MultiCore Process*/
+							<&ipcc_compute_l1 IPCC_COMPUTE_L1_ADSP0 IPCC_COMPUTE_L1_SIGNAL_PROCESSING_ACK IRQ_TYPE_EDGE_RISING>; /* MultiCore Process ACK */
+
+		iommus = <&apps_smmu_0 0x0C00 0x0>;
+		dma-coherent;
+	};
+};
