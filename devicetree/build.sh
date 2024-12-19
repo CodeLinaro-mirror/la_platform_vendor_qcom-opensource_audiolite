@@ -12,4 +12,4 @@ make RPM_BUILD=true all
 cd -
 
 cp ${BUILD_PATH}/*.dtbo oot
-cp ${BUILD_PATH}/*.dts oot
+cp ${BUILD_PATH}/*.dtso oot
