@@ -771,7 +771,8 @@ static int ipc_shmem_reserve_mem(struct ipc_shmem_irq_data *data)
 
 static int ipc_shmem_irq_probe(struct platform_device *pdev)
 {
-    int irq, ret;
+    int irq = 0;
+    int ret = 0;
     struct dentry *dentry;
     struct ipc_shmem_irq_data *data;
     unsigned long size = SHMEM_SIZE;
@@ -788,8 +789,8 @@ static int ipc_shmem_irq_probe(struct platform_device *pdev)
     if(!ipc_from_user) {
         irq = platform_get_irq(pdev, 0);
         if (irq < 0) {
-            dev_err(&pdev->dev, "Failed to get irq. ret: %d\n", irq);
-            return irq;
+            dev_err(&pdev->dev, "Failed to get irq. irq: %d\n", irq);
+            return -ENODEV;
         }
         ret = devm_request_threaded_irq(&pdev->dev,
                         irq, ipc_shmem_irq_fn,
