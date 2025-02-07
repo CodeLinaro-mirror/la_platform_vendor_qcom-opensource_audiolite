@@ -171,7 +171,7 @@ static dma_addr_t dma_region_start;
 static uint8_t cache_test_data = TEST_DATA;
 static int app_pid = -1;
 static int ipc_from_user = 1;
-static int cache_mode_g = NORMAL_CACHED;
+static int cache_mode_g = NORMAL_NON_CACHED;
 static int cache_test_offset = 0;
 static unsigned long shmem_phy_addr = SHMEM_PHY_ADDR;
 static unsigned long shmem_size = SHMEM_SIZE;
