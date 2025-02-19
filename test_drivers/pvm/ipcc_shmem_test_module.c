@@ -171,7 +171,7 @@ static dma_addr_t dma_region_start;
 static uint8_t cache_test_data = TEST_DATA;
 static int app_pid = -1;
 static int ipc_from_user = 1;
-static int cache_mode_g = NORMAL_CACHED;
+static int cache_mode_g = NORMAL_NON_CACHED;
 static int cache_test_offset = 0;
 static unsigned long shmem_phy_addr = SHMEM_PHY_ADDR;
 static unsigned long shmem_size = SHMEM_SIZE;
@@ -771,7 +771,8 @@ static int ipc_shmem_reserve_mem(struct ipc_shmem_irq_data *data)
 
 static int ipc_shmem_irq_probe(struct platform_device *pdev)
 {
-    int irq, ret;
+    int irq = 0;
+    int ret = 0;
     struct dentry *dentry;
     struct ipc_shmem_irq_data *data;
     unsigned long size = SHMEM_SIZE;
@@ -788,8 +789,8 @@ static int ipc_shmem_irq_probe(struct platform_device *pdev)
     if(!ipc_from_user) {
         irq = platform_get_irq(pdev, 0);
         if (irq < 0) {
-            dev_err(&pdev->dev, "Failed to get irq. ret: %d\n", irq);
-            return irq;
+            dev_err(&pdev->dev, "Failed to get irq. irq: %d\n", irq);
+            return -ENODEV;
         }
         ret = devm_request_threaded_irq(&pdev->dev,
                         irq, ipc_shmem_irq_fn,
