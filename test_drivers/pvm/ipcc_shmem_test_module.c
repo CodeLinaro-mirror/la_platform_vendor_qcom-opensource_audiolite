@@ -66,6 +66,7 @@
  * Audio config - 1 MB
  */
 /* shared memory offset for the LAGVM */
+#define SHMEM_METADATA_SIZE                 (0x000080)    /* 128B*/
 #define SHMEM_WRITE_AREA_SIZE               (0xA00000)    /* 10MB */
 #define SHMEM_READ_AREA_SIZE                (0xA00000)    /* 10MB */
 #define SHMEM_AUDIO_CONF_AREA_SIZE          (0x100000)    /* 1MB */
@@ -79,7 +80,8 @@
  * Shared memory area to send or receive the cmd, audio-data,
  * audio-hardware configuration with DSPs
  */
-#define SHMEM_WRITE_OFFSET                  (0x0)
+#define SHMEM_METADATA_OFFSET               (0x000000)    /* start of the shmem */
+#define SHMEM_WRITE_OFFSET                  (SHMEM_METADATA_OFFSET+SHMEM_METADATA_SIZE)
 #define SHMEM_READ_OFFSET                   (SHMEM_WRITE_OFFSET+ \
                                              SHMEM_WRITE_AREA_SIZE)
 
@@ -169,7 +171,7 @@ static dma_addr_t dma_region_start;
 static uint8_t cache_test_data = TEST_DATA;
 static int app_pid = -1;
 static int ipc_from_user = 1;
-static int cache_mode_g = NORMAL_CACHED;
+static int cache_mode_g = NORMAL_NON_CACHED;
 static int cache_test_offset = 0;
 static unsigned long shmem_phy_addr = SHMEM_PHY_ADDR;
 static unsigned long shmem_size = SHMEM_SIZE;
@@ -769,7 +771,8 @@ static int ipc_shmem_reserve_mem(struct ipc_shmem_irq_data *data)
 
 static int ipc_shmem_irq_probe(struct platform_device *pdev)
 {
-    int irq, ret;
+    int irq = 0;
+    int ret = 0;
     struct dentry *dentry;
     struct ipc_shmem_irq_data *data;
     unsigned long size = SHMEM_SIZE;
@@ -783,60 +786,62 @@ static int ipc_shmem_irq_probe(struct platform_device *pdev)
     data->pdev = pdev;
     data->name = pdev->dev.of_node->name;
 
-    irq = platform_get_irq(pdev, 0);
-    if (irq < 0) {
-        dev_err(&pdev->dev, "Failed to get irq. ret: %d\n", irq);
-        return irq;
+    if(!ipc_from_user) {
+        irq = platform_get_irq(pdev, 0);
+        if (irq < 0) {
+            dev_err(&pdev->dev, "Failed to get irq. irq: %d\n", irq);
+            return -ENODEV;
+        }
+        ret = devm_request_threaded_irq(&pdev->dev,
+                        irq, ipc_shmem_irq_fn,
+                         NULL, IRQF_ONESHOT,
+                        data->name, data);
+        if (ret) {
+            dev_err(&pdev->dev,
+                "Failed to request interrupt: ret: %d\n", ret);
+            return ret;
+        }
+
+        data->mbox_client.dev = &pdev->dev;
+        data->mbox_client.knows_txdone = true;
+        data->mbox_chan = mbox_request_channel(&data->mbox_client, 0);
+        if (IS_ERR(data->mbox_chan)) {
+            dev_err(&pdev->dev, "Failed to allocate mbox channel\n");
+            return PTR_ERR(data->mbox_chan);
+        }
+
+        data->debugfs_dir = debugfs_create_dir(data->name, root_test_dir);
+        if (!data->debugfs_dir) {
+            dev_err(&pdev->dev, "Failed to create debugfs directory\n");
+            ret = -ENOMEM;
+            goto debugfs_dir_err;
+        }
+
+        dentry = debugfs_create_file("ping", 0200, data->debugfs_dir, data,
+                        &ipc_shmem_irq_debugfs_fops);
+        if (!dentry) {
+            dev_err(&pdev->dev, "Failed to create the ping file\n");
+            ret = -ENOMEM;
+            goto debugfs_file_err;
+        }
+        debugfs_create_u32("pings_sent", 0600, data->debugfs_dir,
+                        &data->pings_sent);
+
+        debugfs_create_u32("pings_received", 0600, data->debugfs_dir,
+                        &data->pings_received);
+
+        debugfs_create_u32("data_err", 0600, data->debugfs_dir,
+                        &data->data_err);
+
+        debugfs_create_u32("cache_mode", 0600, data->debugfs_dir,
+                        &data->cache_mode);
+
+        debugfs_create_u32("kernel_test", 0600, data->debugfs_dir,
+                        &data->kernel_test);
+        debugfs_create_u32("cache_test_size", 0600, data->debugfs_dir,
+                        &data->cache_test_size);
+
     }
-
-    ret = devm_request_threaded_irq(&pdev->dev,
-                    irq, ipc_shmem_irq_fn,
-                     NULL, IRQF_ONESHOT,
-                    data->name, data);
-    if (ret) {
-        dev_err(&pdev->dev,
-            "Failed to request interrupt: ret: %d\n", ret);
-        return ret;
-    }
-
-    data->mbox_client.dev = &pdev->dev;
-    data->mbox_client.knows_txdone = true;
-    data->mbox_chan = mbox_request_channel(&data->mbox_client, 0);
-    if (IS_ERR(data->mbox_chan)) {
-        dev_err(&pdev->dev, "Failed to allocate mbox channel\n");
-        return PTR_ERR(data->mbox_chan);
-    }
-
-    data->debugfs_dir = debugfs_create_dir(data->name, root_test_dir);
-    if (!data->debugfs_dir) {
-        dev_err(&pdev->dev, "Failed to create debugfs directory\n");
-        ret = -ENOMEM;
-        goto debugfs_dir_err;
-    }
-
-    dentry = debugfs_create_file("ping", 0200, data->debugfs_dir, data,
-                    &ipc_shmem_irq_debugfs_fops);
-    if (!dentry) {
-        dev_err(&pdev->dev, "Failed to create the ping file\n");
-        ret = -ENOMEM;
-        goto debugfs_file_err;
-    }
-    debugfs_create_u32("pings_sent", 0600, data->debugfs_dir,
-                    &data->pings_sent);
-
-    debugfs_create_u32("pings_received", 0600, data->debugfs_dir,
-                    &data->pings_received);
-
-    debugfs_create_u32("data_err", 0600, data->debugfs_dir,
-                    &data->data_err);
-
-    debugfs_create_u32("cache_mode", 0600, data->debugfs_dir,
-                    &data->cache_mode);
-
-    debugfs_create_u32("kernel_test", 0600, data->debugfs_dir,
-                    &data->kernel_test);
-    debugfs_create_u32("cache_test_size", 0600, data->debugfs_dir,
-                    &data->cache_test_size);
     data->dev = &pdev->dev;
     platform_set_drvdata(pdev, data);
     if (ipc_shmem_reserve_mem(data) != 0) {
@@ -915,9 +920,13 @@ static void ipc_shmem_irq_exit(void)
 static void free_all_danglers(struct list_head *danglers)
 {
     struct list_head *iter, *tmp;
+
+    if (danglers == NULL) {
+        return; // Return early if the list head is NULL
+    }
+
     list_for_each_safe(iter, tmp, danglers) {
-        struct dangling_allocation *dangler =
-            container_of(iter, struct dangling_allocation, list);
+        struct dangling_allocation *dangler = container_of(iter, struct dangling_allocation, list);
         __free_pages(dangler->page, dangler->order);
         list_del(iter);
         kfree(dangler);
@@ -1292,13 +1301,11 @@ static int ipc_shmem_init(void)
             __FUNCTION__, rc);
         return rc;
     }
-    if(!ipc_from_user) {
-        rc = ipc_shmem_irq_init();
-        if(rc) {
-            pr_err("%s: ipc_shmem_irq_init　failed rc=%d \n",
-                __FUNCTION__, rc);
-            return rc;
-        }
+    rc = ipc_shmem_irq_init();
+    if(rc) {
+        pr_err("%s: ipc_shmem_irq_init　failed rc=%d \n",
+            __FUNCTION__, rc);
+        return rc;
     }
     return rc;
 }
@@ -1310,10 +1317,7 @@ static void ipc_shmem_exit(void)
         return;
     }
     ipc_shmem_device_destroy();
-
-    if(!ipc_from_user) {
-        ipc_shmem_irq_exit();
-    }
+    ipc_shmem_irq_exit();
 
     return;
 }
@@ -1327,5 +1331,4 @@ MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("QCOM Test Driver for Shared Memory & IPCC");
 module_init(ipc_shmem_init);
 module_exit(ipc_shmem_exit);
-
 
