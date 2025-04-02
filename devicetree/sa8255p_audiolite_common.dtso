@@ -14,8 +14,8 @@
 #include <audiolite-dt-bindings/qcom-shmem.h>
 
 / {
-	model = "Qualcomm SA8255P Ride";
-	compatible = "Qualcomm SA8255P Ride";
+	model = "Qualcomm Technologies, Inc. SA8775P Ride";
+	compatible = "qcom,sa8255p-ride","qcom,sa8255p";
 };
 
 
@@ -126,9 +126,45 @@
 							  <&ipcc_compute_l0 IPCC_CLIENT_GPDSP1  IPCC_COMPUTE_L0_SIGNAL_MSG IRQ_TYPE_EDGE_RISING>,
 							  <&ipcc_compute_l0 IPCC_CLIENT_LPASS   IPCC_COMPUTE_L0_SIGNAL_ACK IRQ_TYPE_EDGE_RISING>,
 							  <&ipcc_compute_l0 IPCC_CLIENT_GPDSP0  IPCC_COMPUTE_L0_SIGNAL_ACK IRQ_TYPE_EDGE_RISING>,
-							  <&ipcc_compute_l0 IPCC_CLIENT_GPDSP1  IPCC_COMPUTE_L0_SIGNAL_ACK IRQ_TYPE_EDGE_RISING>;
+							  <&ipcc_compute_l0 IPCC_CLIENT_GPDSP1  IPCC_COMPUTE_L0_SIGNAL_ACK IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l0 IPCC_CLIENT_LPASS   IPCC_COMPUTE_L0_SIGNAL_EVENT IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l0 IPCC_CLIENT_GPDSP0  IPCC_COMPUTE_L0_SIGNAL_EVENT IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l0 IPCC_CLIENT_GPDSP1  IPCC_COMPUTE_L0_SIGNAL_EVENT IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l0 IPCC_CLIENT_LPASS   IPCC_COMPUTE_L0_SIGNAL_EVENT_ACK IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l0 IPCC_CLIENT_GPDSP0  IPCC_COMPUTE_L0_SIGNAL_EVENT_ACK IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l0 IPCC_CLIENT_GPDSP1  IPCC_COMPUTE_L0_SIGNAL_EVENT_ACK IRQ_TYPE_EDGE_RISING>;
 
 		iommus = <&apps_smmu 0x8E0 0x0>;
+		dma-coherent;
+	};
+
+	umd_audio_hlos1@448000 {
+		compatible = "qcom,vfio-platform";
+		reg = <0x0 0x00448000 0x0 0x1000>;
+
+		interrupts-extended = <&ipcc_compute_l0 IPCC_CLIENT_LPASS IPCC_COMPUTE_L0_SIGNAL_TUNING      IRQ_TYPE_EDGE_RISING>, /* Tuning */
+							  <&ipcc_compute_l0 IPCC_CLIENT_LPASS IPCC_COMPUTE_L0_SIGNAL_TUNING_ACK  IRQ_TYPE_EDGE_RISING>,   /* Tuning ACK */
+							  <&ipcc_compute_l0 IPCC_CLIENT_GPDSP0 IPCC_COMPUTE_L0_SIGNAL_TUNING     IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l0 IPCC_CLIENT_GPDSP0 IPCC_COMPUTE_L0_SIGNAL_TUNING_ACK IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l0 IPCC_CLIENT_GPDSP1 IPCC_COMPUTE_L0_SIGNAL_TUNING     IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l0 IPCC_CLIENT_GPDSP1 IPCC_COMPUTE_L0_SIGNAL_TUNING_ACK IRQ_TYPE_EDGE_RISING>;
+
+		iommus = <&apps_smmu 0x3920 0x0>;
+		dma-coherent;
+	};
+
+	umd_audio_hlos2@448000 {
+		compatible = "qcom,vfio-platform";
+		reg = <0x0 0x00448000 0x0 0x1000>;
+
+		interrupts-extended = <&ipcc_compute_l0 IPCC_CLIENT_LPASS IPCC_COMPUTE_L0_SIGNAL_PROCESSING      IRQ_TYPE_EDGE_RISING>, /* MultiCore Process*/
+							  <&ipcc_compute_l0 IPCC_CLIENT_LPASS IPCC_COMPUTE_L0_SIGNAL_PROCESSING_ACK  IRQ_TYPE_EDGE_RISING>, /* MultiCore Process ACK */
+							  <&ipcc_compute_l0 IPCC_CLIENT_GPDSP0 IPCC_COMPUTE_L0_SIGNAL_PROCESSING     IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l0 IPCC_CLIENT_GPDSP0 IPCC_COMPUTE_L0_SIGNAL_PROCESSING_ACK IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l0 IPCC_CLIENT_GPDSP1 IPCC_COMPUTE_L0_SIGNAL_PROCESSING     IRQ_TYPE_EDGE_RISING>,
+							  <&ipcc_compute_l0 IPCC_CLIENT_GPDSP1 IPCC_COMPUTE_L0_SIGNAL_PROCESSING_ACK IRQ_TYPE_EDGE_RISING>;
+
+		iommus = <&apps_smmu 0x1420 0x0>;
 		dma-coherent;
 	};
 };
