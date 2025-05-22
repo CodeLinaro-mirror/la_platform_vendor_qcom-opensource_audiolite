@@ -180,4 +180,8 @@
 		no-map;
 		reg = <0x0 0xad000000 0x0 0x2000000>;
 	};
+
+	audio_mdf_mem: audio-mdf-region@ae000000 {
+		status = "disabled";
+	};
 };

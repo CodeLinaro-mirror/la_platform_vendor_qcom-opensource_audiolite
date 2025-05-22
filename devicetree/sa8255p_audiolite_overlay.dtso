@@ -43,7 +43,7 @@
 		gunyah-label = <0x49>;
 	};
 
-	audio_mdf_mem: audio_mdf_region@ae000000 {
+	audio_mdf_mem: audio-mdf-region@ae000000 {
 		status = "disabled";
 	};
 };
