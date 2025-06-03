@@ -1,6 +1,6 @@
 /*
+ * SPDX-License-Identifier: GPL-2.0-only
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include <linux/kernel.h>
