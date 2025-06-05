@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -876,7 +877,7 @@ static int ipc_shmem_irq_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id ipc_shmem_irq_of_match[] = {
-    { .compatible = "qcom,ipcc-self-ping"},
+    { .compatible = "qcom,ipcc-self-ping-audiolite"},
     {}
 };
 MODULE_DEVICE_TABLE(of, ipc_shmem_irq_of_match);
@@ -885,7 +886,7 @@ static struct platform_driver ipc_shmem_irq_driver = {
     .probe = ipc_shmem_irq_probe,
     .remove = ipc_shmem_irq_remove,
     .driver = {
-        .name = "qcom_ipcc_self_ping",
+        .name = "qcom_ipcc_self_ping-audiolite",
         .of_match_table = ipc_shmem_irq_of_match,
     },
 };
