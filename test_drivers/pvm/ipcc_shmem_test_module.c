@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0-only
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -171,7 +172,7 @@ static dma_addr_t dma_region_start;
 static uint8_t cache_test_data = TEST_DATA;
 static int app_pid = -1;
 static int ipc_from_user = 1;
-static int cache_mode_g = NORMAL_CACHED;
+static int cache_mode_g = NORMAL_NON_CACHED;
 static int cache_test_offset = 0;
 static unsigned long shmem_phy_addr = SHMEM_PHY_ADDR;
 static unsigned long shmem_size = SHMEM_SIZE;
@@ -771,7 +772,8 @@ static int ipc_shmem_reserve_mem(struct ipc_shmem_irq_data *data)
 
 static int ipc_shmem_irq_probe(struct platform_device *pdev)
 {
-    int irq, ret;
+    int irq = 0;
+    int ret = 0;
     struct dentry *dentry;
     struct ipc_shmem_irq_data *data;
     unsigned long size = SHMEM_SIZE;
@@ -788,8 +790,8 @@ static int ipc_shmem_irq_probe(struct platform_device *pdev)
     if(!ipc_from_user) {
         irq = platform_get_irq(pdev, 0);
         if (irq < 0) {
-            dev_err(&pdev->dev, "Failed to get irq. ret: %d\n", irq);
-            return irq;
+            dev_err(&pdev->dev, "Failed to get irq. irq: %d\n", irq);
+            return -ENODEV;
         }
         ret = devm_request_threaded_irq(&pdev->dev,
                         irq, ipc_shmem_irq_fn,
@@ -875,7 +877,7 @@ static int ipc_shmem_irq_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id ipc_shmem_irq_of_match[] = {
-    { .compatible = "qcom,ipcc-self-ping"},
+    { .compatible = "qcom,ipcc-self-ping-audiolite"},
     {}
 };
 MODULE_DEVICE_TABLE(of, ipc_shmem_irq_of_match);
@@ -884,7 +886,7 @@ static struct platform_driver ipc_shmem_irq_driver = {
     .probe = ipc_shmem_irq_probe,
     .remove = ipc_shmem_irq_remove,
     .driver = {
-        .name = "qcom_ipcc_self_ping",
+        .name = "qcom_ipcc_self_ping-audiolite",
         .of_match_table = ipc_shmem_irq_of_match,
     },
 };
