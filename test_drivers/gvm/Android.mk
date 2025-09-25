@@ -23,6 +23,16 @@ LOCAL_MODULE_KBUILD_NAME  := Module.symvers
 LOCAL_MODULE_PATH         := $(KERNEL_MODULES_OUT)
 include $(DLKM_DIR)/Build_external_kernelmodule.mk
 endif
+ifeq ($(TARGET_BOARD_PLATFORM)$(TARGET_BOARD_SUFFIX)$(TARGET_BOARD_DERIVATIVE_SUFFIX), gen4_gvm_sgt)
+	include $(CLEAR_VARS)
+LOCAL_SRC_FILES           := $(AUDIOLITE_SRC_FILES)
+LOCAL_MODULE              := ipcc_shmem_test_module-symvers
+LOCAL_MODULE_STEM         := Module.symvers
+LOCAL_MODULE_KBUILD_NAME  := Module.symvers
+LOCAL_MODULE_PATH         := $(KERNEL_MODULES_OUT)
+include $(DLKM_DIR)/Build_external_kernelmodule.mk
+endif
+
 #######################################################################
 
 #KBUILD_OPTIONS
