@@ -1,4 +1,5 @@
 LOCAL_PATH := $(call my-dir)
+LOCAL_MODULE_DDK_BUILD := true
 ifeq ($(TARGET_USES_AUDIOLITE), true)
 $(warning "Audiolite DLKM Build Enabled", $(TARGET_USES_AUDIOLITE))
 DLKM_DIR := $(TOP)/device/qcom/common/dlkm
