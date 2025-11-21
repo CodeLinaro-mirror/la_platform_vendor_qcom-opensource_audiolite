@@ -258,8 +258,11 @@ static int ipcc_shmem_send_signal_to_user(enum ipc_client client,
 static int ipc_shmem_enable(struct ipc_shmem_irq_data *data,
                             unsigned long size);
 static void ipc_shmem_disable(struct ipc_shmem_irq_data *data);
+#ifndef IS_PMEM_API_BAZEL
+#ifdef CONFIG_ARCH_HAS_PMEM_API
 extern void arch_invalidate_pmem(void *addr, size_t size);
-
+#endif
+#endif
 static int shmem_cmd_set_opcode(uint8_t *buffer,
                                 uint32_t buffer_size,
                                 int opcode,
@@ -375,22 +378,24 @@ static enum ipc_client get_ipc_client(const char *name)
 /* invalidate the cache before cpu reads the buffer */
 static int begin_cpu_access(void *addr, size_t size, uint32_t cache_mode)
 {
+#ifndef IS_PMEM_API_BAZEL
 #ifdef CONFIG_ARCH_HAS_PMEM_API
     if(cache_mode)
         arch_invalidate_pmem(addr, size);
 #endif
-
+#endif
     return 0;
 }
 
 /* flush the cache after cpu write to the buffer */
 static int end_cpu_access(void *addr, size_t size, uint32_t cache_mode)
 {
-#ifdef CONFIG_ARCH_HAS_PMEM_API
+#ifndef IS_PMEM_API_BAZEL
+#ifdef CONFIG_ARCH_HAS_PMEM_API_RAGHU
     if(cache_mode)
         arch_invalidate_pmem(addr, size);
 #endif
-
+#endif
     return 0;
 }
 
@@ -588,7 +593,7 @@ static int write_test_data_to_shmem(const char *name,
         shmem_cmd_addr = shmem_addr + SHMEM_CMD_OFFSET;
         shmem_data_addr = shmem_addr + SHMEM_WRITE_OFFSET;
     }
-    pr_info("%s: cache_mode %d shmem_cmd_addr=0x%x shmem_data_addr=0x%x\n",
+    pr_info("%s: cache_mode %d shmem_cmd_addr=0x%p shmem_data_addr=0x%p\n",
             __FUNCTION__,
             cache_mode,
             shmem_cmd_addr,
@@ -648,7 +653,7 @@ static int write_cache_test_data_to_shmem(const char *name,
         shmem_data_addr = shmem_addr + SHMEM_WRITE_OFFSET + cache_test_offset;
         shmem_cmd_addr = shmem_addr + SHMEM_CMD_OFFSET;
     }
-    pr_info("%s: cache_mode %d shmem_data_addr=0x%x\n",
+    pr_info("%s: cache_mode %d shmem_data_addr=0x%p\n",
             __FUNCTION__,
             cache_mode,
             shmem_data_addr);
@@ -762,7 +767,7 @@ static int ipc_shmem_reserve_mem(struct ipc_shmem_irq_data *data)
             dev_info(dev, "gen_pool add failed");
             return ret;
         }
-        dev_info(dev, "gen pool: %zu KiB @ 0x%lx\n", gen_pool_size(pool) / 1024, data->virt_base);
+        dev_info(dev, "gen pool: %zu KiB @ %p\n", gen_pool_size(pool) / 1024, data->virt_base);
     } else {
         return -ENOMEM;
     }
@@ -864,7 +869,7 @@ debugfs_dir_err:
     return ret;
 }
 
-static int ipc_shmem_irq_remove(struct platform_device *pdev)
+static void ipc_shmem_irq_remove(struct platform_device *pdev)
 {
     struct ipc_shmem_irq_data *data = platform_get_drvdata(pdev);
 
@@ -873,7 +878,6 @@ static int ipc_shmem_irq_remove(struct platform_device *pdev)
     ipc_shmem_disable(data);
     dev_info(&pdev->dev, "Removed %s\n", data->name);
 
-    return 0;
 }
 
 static const struct of_device_id ipc_shmem_irq_of_match[] = {
@@ -1054,7 +1058,7 @@ static int ipc_shmem_cache_flush_inval_offset(struct ipc_shmem_cache_offset_ops 
     }
     if(shmem_addr != NULL) {
         cache_ops->buf = shmem_addr + cache_ops->offset;
-        pr_info("%s: addr=0x%llx offset=%d\n",
+        pr_info("%s: addr=%p offset=%d\n",
                 __FUNCTION__, cache_ops->buf, cache_ops->offset);
     }
     if(cache_ops->flag == CACHE_FLUSH) {
@@ -1162,7 +1166,7 @@ static ssize_t ipc_shmem_read(struct file *filep, char *buffer,
     if(copy_to_user((void __user *)buffer, shmem_addr, length))
         return -EFAULT;
 
-    pr_debug("%s: done length=%d\n", __FUNCTION__, length);
+    pr_debug("%s: done length=%zu\n", __FUNCTION__, length);
 
     return length;
 }
@@ -1192,7 +1196,7 @@ static int ipc_shmem_mmap(struct file *filp, struct vm_area_struct *vma)
 
     vma->vm_pgoff = (phy_addr >> PAGE_SHIFT) + pgoff;
 
-    pr_info("%s: phy_addr=0x%lx pgoff=0x%lx, size=%d, cache mode=%d\n",
+    pr_info("%s: phy_addr=0x%lx pgoff=0x%lx, size=%llu, cache mode=%d\n",
             __FUNCTION__, phy_addr, vma->vm_pgoff, req_len, cache_mode_g);
 
     ret = remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
@@ -1219,7 +1223,7 @@ static ssize_t ipc_shmem_write(struct file *filep, const char *buffer,
     if(copy_from_user(shmem_addr, (void __user *)buffer, length))
         return -EFAULT;
 
-    pr_debug("%s: done length=%d\n", __FUNCTION__, length);
+    pr_debug("%s: done length=%zu\n", __FUNCTION__, length);
 
     return length;
 }
@@ -1247,7 +1251,7 @@ static int ipc_shmem_device_create(void)
         goto out;
     }
 
-    ipc_shmem_class = class_create(THIS_MODULE, IPC_SHMEM_DEV_NAME);
+    ipc_shmem_class = class_create(IPC_SHMEM_DEV_NAME);
     if (IS_ERR(ipc_shmem_class)) {
         rc = PTR_ERR(ipc_shmem_class);
         pr_err("%s: Unable to create class: %d\n", __FUNCTION__, rc);
