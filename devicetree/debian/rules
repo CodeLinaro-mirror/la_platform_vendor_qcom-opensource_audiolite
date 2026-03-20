@@ -1,0 +1,44 @@
+#!/usr/bin/make -f
+
+DTC     := dtc
+CPP     := cpp
+
+DTC_INCLUDE := \
+	-I$(CURDIR) \
+	-I$(CURDIR)/audiolite-dt-bindings \
+	-I/usr/include \
+	-I/usr/src/linux-headers-6.6.110/include
+
+DTC_FLAGS := -@ -O dtb
+CPP_FLAGS := -nostdinc -undef -x assembler-with-cpp $(DTC_INCLUDE)
+
+DTBO_INSTALL_DIR   := /lib/firmware/qcom/audiolite
+HEADER_INSTALL_DIR := /usr/include/audiolite-dt-bindings
+
+DTSO_FILES := \
+	sa8797p_audiolite_common.dtso \
+	sa8797p_audiolite_overlay.dtso
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	@echo "Building device tree overlays..."
+	$(foreach dts,$(DTSO_FILES), \
+		$(CPP) $(CPP_FLAGS) $(dts) -o $(dts:.dtso=.dts.tmp) && \
+		$(DTC) $(DTC_FLAGS) -o $(dts:.dtso=.dtbo) $(dts:.dtso=.dts.tmp) && \
+		rm -f $(dts:.dtso=.dts.tmp);)
+
+override_dh_auto_test:
+
+override_dh_auto_install:
+	install -d $(CURDIR)/debian/tmp$(DTBO_INSTALL_DIR)
+	$(foreach dts,$(DTSO_FILES), \
+		install -m 0644 $(CURDIR)/$(dts:.dtso=.dtbo) \
+			$(CURDIR)/debian/tmp$(DTBO_INSTALL_DIR)/;)
+	install -d $(CURDIR)/debian/tmp$(HEADER_INSTALL_DIR)
+	install -m 0644 $(CURDIR)/audiolite-dt-bindings/*.h \
+		$(CURDIR)/debian/tmp$(HEADER_INSTALL_DIR)/
+
+override_dh_auto_clean:
+	rm -f $(CURDIR)/*.dtbo $(CURDIR)/*.dtb $(CURDIR)/*.dts.tmp

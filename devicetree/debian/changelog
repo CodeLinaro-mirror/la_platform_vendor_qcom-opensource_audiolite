@@ -1,0 +1,9 @@
+audiolite-devicetree (1.0.0) unstable; urgency=low
+
+  * Initial Debian packaging.
+  * Converted from Yocto BB recipe: audiolite-devicetree_git.bb.
+  * Builds device tree binary overlays (.dtbo) for SA8775P, SA8255P
+    and SA8797P platforms using the out-of-tree kernel build system.
+  * Supports conditional ENABLE_AUDIOLITE_OVERLAY for overlay dtbo files.
+
+ -- renfqian <renfqian@qti.qualcomm.com>  Thu, 20 Mar 2026 14:00:00 +0800
