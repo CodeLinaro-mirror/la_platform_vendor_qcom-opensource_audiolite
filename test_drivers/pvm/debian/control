@@ -1,0 +1,34 @@
+Source: audiolite-dlkm
+Section: kernel
+Priority: optional
+Maintainer: Renfei Qian <renfqian@qti.qualcomm.com>
+Build-Depends: debhelper-compat (= 13),
+               linux-headers-6.6.110
+Standards-Version: 4.6.2
+Homepage: https://git.codelinaro.org
+Rules-Requires-Root: no
+
+Package: audiolite-dlkm
+Architecture: any
+Depends: ${misc:Depends},
+         kmod
+Description: Audiolite kernel module (pre-built)
+ This is a test driver to show example communication between GVM / PVM / DSPs.
+ It provides the ipcc_shmem_test_module kernel module for audiolite support.
+ .
+ This package contains the pre-built .ko for kernel 6.6.110, installed to
+ /lib/modules/6.6.110/updates/dkms/. No DKMS or kernel headers required
+ on the target machine.
+
+Package: audiolite-dlkm-dev
+Section: libdevel
+Architecture: any
+Depends: ${misc:Depends},
+         audiolite-dlkm (= ${binary:Version})
+Description: Audiolite kernel module - development headers
+ This package provides the C header file (ipcc_shmem_module.h)
+ for userspace programs that interface with the ipcc_shmem_test_module
+ kernel module.
+ .
+ Install this package when building software that uses the audiolite
+ IPCC shared-memory kernel interface.

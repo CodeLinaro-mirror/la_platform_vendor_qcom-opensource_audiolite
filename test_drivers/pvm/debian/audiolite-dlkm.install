@@ -1,0 +1,3 @@
+usr/lib/modules/6.6.110/updates/dkms/ipcc_shmem_test_module.ko
+etc/modules-load.d/audiolite-dlkm.conf
+lib/udev/rules.d/msm-audio-node.rules

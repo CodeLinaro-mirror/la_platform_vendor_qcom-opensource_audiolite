@@ -1,0 +1,56 @@
+#!/usr/bin/make -f
+
+export DH_VERBOSE = 1
+
+PACKAGE_NAME    = audiolite-dlkm
+PACKAGE_VERSION = $(shell dpkg-parsechangelog -S Version)
+
+KVER       = 6.6.110
+KERNEL_SRC = /usr/src/linux-headers-$(KVER)
+
+%:
+	dh $@
+
+# ---------------------------------------------------------------
+# clean: remove generated artefacts.
+# ---------------------------------------------------------------
+override_dh_auto_clean:
+	rm -f *.ko *.o *.mod.c *.mod *.cmd .*.cmd
+	rm -rf .tmp_versions Module.symvers modules.order
+
+# ---------------------------------------------------------------
+# build: compile the kernel module.
+# ---------------------------------------------------------------
+override_dh_auto_build:
+	@echo "=== Building ipcc_shmem_test_module.ko (KERNEL_SRC=$(KERNEL_SRC)) ==="
+	$(MAKE) -C $(KERNEL_SRC) M=$(CURDIR) AUDIOLITE_ROOT=$(CURDIR) modules
+	@echo "=== Build complete: $(CURDIR)/ipcc_shmem_test_module.ko ==="
+
+# ---------------------------------------------------------------
+# install: stage files into debian/tmp for dh_install.
+# ---------------------------------------------------------------
+override_dh_auto_install:
+	# --- .ko -> usr/lib/modules/<kver>/updates/dkms/ ---
+	install -D -m 0644 ipcc_shmem_test_module.ko \
+	        debian/tmp/usr/lib/modules/$(KVER)/updates/dkms/ipcc_shmem_test_module.ko
+
+	# --- dev header -> usr/include/audiolite/ ---
+	install -D -m 0644 ipcc_shmem_module.h \
+	        debian/tmp/usr/include/audiolite/ipcc_shmem_module.h
+
+	# --- modules-load.d ---
+	install -D -m 0644 audiolite-dlkm.conf \
+	        debian/tmp/etc/modules-load.d/audiolite-dlkm.conf
+
+	# --- udev rules ---
+	install -D -m 0644 msm-audio-node.rules \
+	        debian/tmp/lib/udev/rules.d/msm-audio-node.rules
+
+override_dh_auto_test:
+	dh_auto_test
+
+override_dh_strip:
+	dh_strip
+
+override_dh_shlibdeps:
+	dh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info
