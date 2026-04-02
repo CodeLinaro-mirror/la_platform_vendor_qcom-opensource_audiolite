@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+//#include <safelinux-system-cfg/oot-dt-bindings/qcom-ipcc-sa8797p.h>
+//#include <base-devicetree/arch/arm64/boot/dts/qcom/oot-dt-bindings/qcom-ipcc-sa8797p.h>
+#include <audiolite-dt-bindings/qcom-audiolite-ipcc-sa8797p.h>
+#include <audiolite-dt-bindings/qcom-shmem.h>
+
+/ {
+	model = "Qualcomm Technologies, Inc. SecaAU";
+	compatible ="qcom,secaau-rumi","qcom,seca";
+	qcom,board-id = <0xf 0>;
+};
+
+
+&soc {
+	auto_vm_0: gh-secure-vm-loader@0 {
+		shared-regions = <&mdf_mem>;
+	};
+};
+
+
+&{/reserved-memory} {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	ranges;
+
+	mdf_mem: mdf_region@0xd4e00000 {
+		compatible = "shared-dma-pool";
+		no-map;
+		reg = <0x0 0xd4e00000 0x0 0x2000000>;
+		qcom,dst-vmids = <VMID_ADSP0_Q6 VMID_ADSP1_Q6>;
+		qcom,dst-perms = <QCOM_PERM_RWX QCOM_PERM_RWX>;
+		qcom,src-vmids = <VMID_ADSP0_Q6 VMID_ADSP1_Q6>;
+		qcom,src-perms = <QCOM_PERM_RWX QCOM_PERM_RWX>;
+		qcom,is-shared;
+		gunyah-label = <0x49>;
+	};
+};
