@@ -1155,7 +1155,7 @@ static ssize_t ipc_shmem_read(struct file *filep, char *buffer,
     size_t length, loff_t *offset)
 {
 
-    pr_info("%s:  \n", __FUNCTION__);
+    pr_debug("%s:  \n", __FUNCTION__);
 
     if(shmem_addr == NULL)
         return 0;
