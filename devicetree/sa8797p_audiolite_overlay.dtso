@@ -14,8 +14,8 @@
 #include <audiolite-dt-bindings/qcom-shmem.h>
 
 / {
-	model = "Qualcomm SA8797";
-	compatible = "qcom,sa8797p-rumi", "qcom,sa8797p";
+	model = "Qualcomm SA8797", "Qualcomm Technologies, Inc. IQX EVK";
+	compatible = "qcom,sa8797p-rumi", "qcom,sa8797p", "qcom,qcs8797-iqx-evk";
 	qcom,board-id = <0xf 0>;
 };
 
