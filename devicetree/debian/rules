@@ -16,8 +16,8 @@ DTBO_INSTALL_DIR   := /lib/firmware/qcom/audiolite
 HEADER_INSTALL_DIR := /usr/include/audiolite-dt-bindings
 
 DTSO_FILES := \
-	sa8797p_audiolite_common.dtso \
-	sa8797p_audiolite_overlay.dtso
+	sa8797p_audiolite_common-iqx.dtso \
+	sa8797p_audiolite_overlay-iqx.dtso
 
 %:
 	dh $@
