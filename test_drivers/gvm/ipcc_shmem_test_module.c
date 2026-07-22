@@ -172,11 +172,7 @@ static dma_addr_t dma_region_start;
 static uint8_t cache_test_data = TEST_DATA;
 static int app_pid = -1;
 static int ipc_from_user = 0;
-#ifdef IS_PMEM_API_BAZEL
-static int cache_mode_g = NORMAL_NON_CACHED;
-#else
 static int cache_mode_g = NORMAL_CACHED;
-#endif
 static int cache_test_offset = 0;
 static unsigned long shmem_phy_addr = SHMEM_PHY_ADDR;
 static unsigned long shmem_size = SHMEM_SIZE;
@@ -262,11 +258,8 @@ static int ipcc_shmem_send_signal_to_user(enum ipc_client client,
 static int ipc_shmem_enable(struct ipc_shmem_irq_data *data,
                             unsigned long size);
 static void ipc_shmem_disable(struct ipc_shmem_irq_data *data);
-#ifndef IS_PMEM_API_BAZEL
-#ifdef CONFIG_ARCH_HAS_PMEM_API
+
 extern void arch_invalidate_pmem(void *addr, size_t size);
-#endif
-#endif
 static int shmem_cmd_set_opcode(uint8_t *buffer,
                                 uint32_t buffer_size,
                                 int opcode,
@@ -382,24 +375,22 @@ static enum ipc_client get_ipc_client(const char *name)
 /* invalidate the cache before cpu reads the buffer */
 static int begin_cpu_access(void *addr, size_t size, uint32_t cache_mode)
 {
-#ifndef IS_PMEM_API_BAZEL
 #ifdef CONFIG_ARCH_HAS_PMEM_API
     if(cache_mode)
         arch_invalidate_pmem(addr, size);
 #endif
-#endif
+
     return 0;
 }
 
 /* flush the cache after cpu write to the buffer */
 static int end_cpu_access(void *addr, size_t size, uint32_t cache_mode)
 {
-#ifndef IS_PMEM_API_BAZEL
-#ifdef CONFIG_ARCH_HAS_PMEM_API_RAGHU
+#ifdef CONFIG_ARCH_HAS_PMEM_API
     if(cache_mode)
         arch_invalidate_pmem(addr, size);
 #endif
-#endif
+
     return 0;
 }
 
