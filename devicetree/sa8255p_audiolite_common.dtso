@@ -30,7 +30,7 @@
 	};
 
 	ipcc_self_ping_apss_cl0: ipcc-self-ping-apss_cl0 {
-		compatible = "qcom,ipcc-self-ping";
+		compatible = "qcom,ipcc-self-ping-audiolite";
 		mboxes = <&ipcc_compute_l0 IPCC_CLIENT_APSS_NS1
 				IPCC_COMPUTE_L0_SIGNAL_MSG>;
 		interrupt-parent = <&ipcc_compute_l0>;
@@ -41,7 +41,7 @@
 	};
 
 	ipcc_self_ping_apss_cl0_ack: ipcc-self-ping-apss_cl0_ack {
-		compatible = "qcom,ipcc-self-ping";
+		compatible = "qcom,ipcc-self-ping-audiolite";
 		mboxes = <&ipcc_compute_l0 IPCC_CLIENT_APSS_NS1
 				IPCC_COMPUTE_L0_SIGNAL_ACK>;
 		interrupt-parent = <&ipcc_compute_l0>;
@@ -52,7 +52,7 @@
 	};
 
 	ipcc_self_ping_adsp_cl0: ipcc-self-ping-adsp_cl0 {
-		compatible = "qcom,ipcc-self-ping";
+		compatible = "qcom,ipcc-self-ping-audiolite";
 		mboxes = <&ipcc_compute_l0 IPCC_CLIENT_LPASS
 				IPCC_COMPUTE_L0_SIGNAL_MSG>;
 		interrupt-parent = <&ipcc_compute_l0>;
@@ -63,7 +63,7 @@
 	};
 
 	ipcc_self_ping_adsp_cl0_ack: ipcc-self-ping-adsp_cl0_ack {
-		compatible = "qcom,ipcc-self-ping";
+		compatible = "qcom,ipcc-self-ping-audiolite";
 		mboxes = <&ipcc_compute_l0 IPCC_CLIENT_LPASS
 				IPCC_COMPUTE_L0_SIGNAL_ACK>;
 		interrupt-parent = <&ipcc_compute_l0>;
@@ -74,7 +74,7 @@
 	};
 
 	ipcc_self_ping_gpdsp0_cl0: ipcc-self-ping-gpdsp0_cl0 {
-		compatible = "qcom,ipcc-self-ping";
+		compatible = "qcom,ipcc-self-ping-audiolite";
 		mboxes = <&ipcc_compute_l0 IPCC_CLIENT_GPDSP0
 				IPCC_COMPUTE_L0_SIGNAL_MSG>;
 		interrupt-parent = <&ipcc_compute_l0>;
@@ -85,7 +85,7 @@
 	};
 
 	ipcc_self_ping_gpdsp0_cl0_ack: ipcc-self-ping-gpdsp0_cl0_ack {
-		compatible = "qcom,ipcc-self-ping";
+		compatible = "qcom,ipcc-self-ping-audiolite";
 		mboxes = <&ipcc_compute_l0 IPCC_CLIENT_GPDSP0
 				IPCC_COMPUTE_L0_SIGNAL_ACK>;
 		interrupt-parent = <&ipcc_compute_l0>;
@@ -96,7 +96,7 @@
 	};
 
 	ipcc_self_ping_gpdsp1_cl0: ipcc-self-ping-gpdsp1_cl0 {
-		compatible = "qcom,ipcc-self-ping";
+		compatible = "qcom,ipcc-self-ping-audiolite";
 		mboxes = <&ipcc_compute_l0 IPCC_CLIENT_GPDSP1
 				IPCC_COMPUTE_L0_SIGNAL_MSG>;
 		interrupt-parent = <&ipcc_compute_l0>;
@@ -107,7 +107,7 @@
 	};
 
 	ipcc_self_ping_gpdsp1_cl0_ack: ipcc-self-ping-gpdsp1_cl0_ack {
-		compatible = "qcom,ipcc-self-ping";
+		compatible = "qcom,ipcc-self-ping-audiolite";
 		mboxes = <&ipcc_compute_l0 IPCC_CLIENT_GPDSP1
 				IPCC_COMPUTE_L0_SIGNAL_ACK>;
 		interrupt-parent = <&ipcc_compute_l0>;
@@ -174,12 +174,6 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 	ranges;
-
-	ipc_shared_mem: ipc_shared_mem@0xad000000 {
-		compatible = "shared-dma-pool";
-		no-map;
-		reg = <0x0 0xad000000 0x0 0x2000000>;
-	};
 
 	audio_mdf_mem: audio-mdf-region@ae000000 {
 		status = "disabled";
