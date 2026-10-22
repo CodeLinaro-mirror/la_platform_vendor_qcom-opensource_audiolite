@@ -16,7 +16,8 @@
 / {
 	model = "Qualcomm Technologies, Inc. SecaAU";
 	compatible ="qcom,secaau-rumi","qcom,seca";
-	qcom,board-id = <0xf 0>;
+	qcom,board-id = <0xf 0>, <0x0 0x2000001>, <0x0 0x2000002>,
+            <0x0 0x3000001>, <0x0 0x4000002>;
 };
 
 

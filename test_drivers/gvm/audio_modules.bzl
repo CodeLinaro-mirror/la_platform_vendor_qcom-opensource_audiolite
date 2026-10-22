@@ -5,7 +5,6 @@ audio_modules = create_module_registry([":audio_headers"])
 # >>>> AUDIOLITE MODULES <<<<
 audio_modules.register(
     name = "ipcc_shmem_test_module",
-    config_option = "IS_PMEM_API_BAZEL",
     srcs = [
         "ipcc_shmem_test_module.c"
     ],
