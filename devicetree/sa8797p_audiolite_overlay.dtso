@@ -15,7 +15,7 @@
 
 / {
 	model = "Qualcomm SA8797";
-	compatible = "qcom,sa8797p-rumi", "qcom,sa8797p";
+	compatible = "qcom,sa8797p-rumi", "qcom,sa8797p", "qcom,nord-ride", "qcom,nord";
 	qcom,board-id = <0xf 0>;
 };
 
